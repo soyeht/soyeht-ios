@@ -1,4 +1,5 @@
 import Foundation
+import os
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -149,6 +150,7 @@ public protocol HouseholdDevicePairingHTTPClient: Sendable {
 }
 
 public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairingHTTPClient {
+    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "device-pairing")
     private let session: URLSession
 
     public init(session: URLSession = .shared) {
@@ -223,6 +225,11 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
         var request = original
         request.timeoutInterval = 15
         do {
+            if stage == .request, let url = request.url {
+                // Record the request handed to URLSession, after address selection.
+                // Never include the body, credentials, or a polling token.
+                Self.logger.info("pair.request.post host=\(url.host() ?? "<none>", privacy: .public) port=\(url.port ?? (url.scheme == "https" ? 443 : 80), privacy: .public)")
+            }
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw PairingAttemptFailure(stage: stage, endpoint: request.url, cause: .invalidResponse)
