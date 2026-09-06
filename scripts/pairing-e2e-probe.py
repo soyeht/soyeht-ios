@@ -278,16 +278,56 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
                    "cannot be judged from the tapes yet")
 
 
+PERSISTED_CLASS_RE = re.compile(r"\bendpoint\.persisted\b.*?\bclass=(\w+)")
+
+
 def inv_no_silent_lan(t: Transcript, phone_has_tailnet: bool) -> Finding:
+    """A tailnet-capable phone must never WRITE DOWN a LAN address.
+
+    Distinct from TAILNET-KEPT, which reads the address the phone dialled.
+    The dialled address is one decision; the stored one is where every later
+    reconnection starts, and storing the LAN address it happened to be
+    reached on is precisely how a phone looks healthy at home and loses the
+    Mac on the way out.
+
+    MEASURED 2026-09-06: this was keyed on `endpoint.persisted`, a line no
+    build has ever written — `grep -r endpoint.persisted` over the whole
+    repository returned nothing. So every run reached "nothing was persisted"
+    and reported n/a: an invariant that could not fail, guarding the defect
+    it was written for by never looking at it. The product now logs the line
+    (`PairedMacsStore.logPersistedEndpoint`), and a paired run that still
+    records no address is a FAILURE here rather than a shrug — silence is the
+    exact condition that hid this for as long as it did.
+    """
     if not phone_has_tailnet:
         return Finding("NO-SILENT-LAN", "n/a", "only applies to a tailnet-capable phone")
-    saved = first_host(t.phone_grep("endpoint.persisted"), "host")
-    if saved is None:
-        return Finding("NO-SILENT-LAN", "n/a", "nothing was persisted in this run")
-    if classify(saved) == "lan":
+    lines = t.phone_grep("endpoint.persisted")
+    if not lines:
+        if paired_outcome(t):
+            return Finding("NO-SILENT-LAN", "fail",
+                           "the run paired but the phone recorded no stored "
+                           "address; either the build predates "
+                           "endpoint.persisted or it saved without saying "
+                           "what — both leave the LAN-fallback defect "
+                           "invisible")
+        return Finding("NO-SILENT-LAN", "n/a",
+                       "nothing was persisted and nothing paired")
+    # `class=` is decided by the app, on the same rule for every reader;
+    # re-deriving it here from the address string would let the probe and the
+    # product disagree about what "tailnet" means.
+    kinds = [m.group(1) for line in lines
+             if (m := PERSISTED_CLASS_RE.search(line))]
+    saved = first_host(lines, "host")
+    if not kinds:
+        kinds = [classify(saved)] if saved else []
+    if not kinds:
+        return Finding("NO-SILENT-LAN", "fail",
+                       "an endpoint.persisted line with neither class nor host")
+    if "lan" in kinds:
         return Finding("NO-SILENT-LAN", "fail",
                        f"stored a LAN address ({saved}) on a tailnet-capable phone")
-    return Finding("NO-SILENT-LAN", "pass", f"stored {classify(saved)} ({saved})")
+    return Finding("NO-SILENT-LAN", "pass",
+                   f"stored {'/'.join(sorted(set(kinds)))} ({saved})")
 
 
 def inv_profile_isolated(t: Transcript) -> Finding:
@@ -706,7 +746,7 @@ GOOD_TAILNET = Transcript(
          "mac=http://100.64.0.10:8101"],
     phone=["pair.endpoint source=reached host=100.64.0.10 port=8101",
            "pair.confirm.post host=100.64.0.10 port=8101",
-           "endpoint.persisted host=100.64.0.10",
+           "endpoint.persisted mac_id=M1 host=100.64.0.10 class=tailnet",
            "pair.result=paired"],
     engine=["pair_device.confirm.success elapsed_ms=180"],
 )
@@ -716,7 +756,7 @@ GOOD_LAN = Transcript(
          "mac=http://192.168.1.20:8101"],
     phone=["pair.endpoint source=claim host=192.168.1.20 port=8101",
            "pair.confirm.post host=192.168.1.20 port=8101",
-           "endpoint.persisted host=192.168.1.20",
+           "endpoint.persisted mac_id=M1 host=192.168.1.20 class=lan",
            "pair.result=paired"],
     engine=["pair_device.confirm.success elapsed_ms=210"],
 )
@@ -725,9 +765,20 @@ BAD_SILENT_LAN = Transcript(
     mac=["direct_probe.notified mac=http://100.64.0.10:8101"],
     phone=["pair.endpoint source=reached host=192.168.1.20 port=8101",
            "pair.confirm.post host=192.168.1.20 port=8101",
-           "endpoint.persisted host=192.168.1.20",
+           "endpoint.persisted mac_id=M1 host=192.168.1.20 class=lan",
            "pair.result=paired"],
     engine=["pair_device.confirm.success"],
+)
+
+# The shape that reported "n/a" for months: a phone that paired and left no
+# record of what it stored. Silence here is a failure, not an exemption —
+# that shrug is exactly what let a non-existent log line pass for a guard.
+PAIRED_BUT_STORED_NOTHING = Transcript(
+    mac=["direct_probe.notified mac=http://100.64.0.10:8101"],
+    phone=["pair.endpoint source=reached host=100.64.0.10 port=8101",
+           "pair.confirm.post host=100.64.0.10 port=8101",
+           "pair_secret_stored mac_id=M1"],
+    engine=["pair_device.confirm.success elapsed_ms=190"],
 )
 
 BAD_SPINNER = Transcript(
@@ -995,6 +1046,8 @@ def self_test() -> int:
          {"LAN-WORKS": "pass", "NO-SPINNER": "pass", "FIRST-PHONE": "pass"}),
         ("bad, silent LAN downgrade", BAD_SILENT_LAN, True, 2,
          {"TAILNET-KEPT": "fail", "NO-SILENT-LAN": "fail"}),
+        ("bad, paired but stored nothing", PAIRED_BUT_STORED_NOTHING, True, 2,
+         {"NO-SILENT-LAN": "fail"}),
         ("bad, endless spinner", BAD_SPINNER, True, 2,
          {"NO-SPINNER": "fail"}),
         ("bad, first phone deadlocked", BAD_FIRST_PHONE, True, 0,

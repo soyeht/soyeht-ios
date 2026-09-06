@@ -126,8 +126,20 @@ class Phone:
     count.
     """
 
-    def __init__(self, port: int, timeout: float = 20):
-        self.base = f"http://127.0.0.1:{port}"
+    def __init__(self, port: int | None = None, timeout: float = 20,
+                 base: str | None = None):
+        # `base` exists because usbmux is not the only way to reach the
+        # runner, and on 2026-09-06 it was not a working one: every `iproxy`
+        # tunnel for this device went silent while the runner itself was up
+        # and serving. The runner announces its own address on stdout
+        # ("ServerURLHere->http://...<-ServerURLHere"); honouring that is the
+        # difference between a harness that stands and a preflight that
+        # rejects a phone which is answering perfectly well.
+        #
+        # This is the HARNESS's route to the phone. It says nothing about the
+        # address the app under test chooses, which is what the invariants
+        # judge — those are read from the phone's own log, never from here.
+        self.base = base.rstrip("/") if base else f"http://127.0.0.1:{port}"
         self.timeout = timeout
         self.session: str | None = None
 
@@ -152,7 +164,8 @@ class Phone:
             return False
 
     @classmethod
-    def discover(cls, udid: str, preferred: int | None = None) -> "Phone | None":
+    def discover(cls, udid: str, preferred: int | None = None,
+                 base: str | None = None) -> "Phone | None":
         """Finds the tunnel that actually answers.
 
         WebDriverAgent picks a fresh port on the device every time the runner
@@ -160,6 +173,9 @@ class Phone:
         `iproxy` stays open pointing at a dead one. Hard-coding a number makes
         preflight reject a harness that is standing — that cost us a round.
         """
+        if base:
+            phone = cls(base=base)
+            return phone if phone.reachable() else None
         candidates = ([preferred] if preferred else []) + [
             port for port in cls._iproxy_local_ports(udid) if port != preferred
         ]
@@ -507,6 +523,12 @@ def main() -> int:
     parser.add_argument("--mac-process", default=DEV_APP_PROCESS)
     parser.add_argument("--wda-port", type=int,
                         help="force one tunnel; without it I discover which answers")
+    parser.add_argument("--wda-base",
+                        help="reach the runner at this base URL instead of a "
+                             "usbmux tunnel — the address it prints as "
+                             "ServerURLHere. This is only how the HARNESS "
+                             "talks to the phone; it does not influence the "
+                             "address the app under test chooses.")
     parser.add_argument("--find-budget", type=float, default=90,
                         help="how long the phone gets to find the Mac before I "
                              "call it a spinner")
@@ -523,7 +545,8 @@ def main() -> int:
     guard_device(args.udid)
     guard_mac_app(args.mac_process)
 
-    phone = Phone.discover(args.udid, preferred=args.wda_port)
+    phone = Phone.discover(args.udid, preferred=args.wda_port,
+                           base=args.wda_base)
     missing = preflight(phone, args.mac_process)
     if args.preflight:
         if missing:
