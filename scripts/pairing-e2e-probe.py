@@ -1188,9 +1188,15 @@ def run(args) -> int:
     findings = judge(transcript, args.phone_has_tailnet, devices_before,
                      captured_secs=float(args.hold_secs))
 
-    print(f"scenario: {args.scenario}")
-    print(f"lines collected — Mac {len(mac_lines)}, phone {len(phone_lines)}, "
-          f"engine {len(engine_lines)}\n")
+    return report(findings, args.scenario, out_dir, transcript)
+
+
+def report(findings: list[Finding], scenario: str, out_dir: str,
+           transcript: Transcript) -> int:
+    """Prints the verdict and returns the exit code, for either entry point."""
+    print(f"scenario: {scenario}")
+    print(f"lines collected — Mac {len(transcript.mac)}, "
+          f"phone {len(transcript.phone)}, engine {len(transcript.engine)}\n")
     width = max(len(f.name) for f in findings)
     for finding in findings:
         mark = {"pass": "ok  ", "fail": "FAIL", "n/a": "  – "}[finding.verdict]
@@ -1213,6 +1219,38 @@ def run(args) -> int:
     return 1 if failed else 0
 
 
+def judge_dir(args) -> int:
+    """Judges tapes that already exist, instead of capturing new ones.
+
+    `run` starts its own capture and then waits, which is right when the probe
+    drives the run itself. But a run driven by hand — or one whose tapes were
+    kept from an earlier session — leaves three files and no verdict, and
+    re-driving the device just to re-read them costs a household reset and a
+    re-pair. Worse, it invites judging by eye, which is how ten runs got
+    reported wrong before this probe existed.
+    """
+    directory = args.judge_dir
+
+    def lines(name: str) -> list[str]:
+        path = os.path.join(directory, name)
+        if not os.path.exists(path):
+            return []
+        with open(path, errors="replace") as handle:
+            return handle.read().splitlines()
+
+    transcript = Transcript(mac=lines("mac.log"), phone=lines("phone.log"),
+                            engine=lines("engine.log"))
+    if not (transcript.mac or transcript.phone or transcript.engine):
+        print(f"refusing: no mac.log, phone.log or engine.log in {directory}. "
+              "An empty transcript makes every invariant report n/a, which "
+              "reads like a clean run.")
+        return 1
+    findings = judge(transcript, phone_has_tailnet=args.phone_has_tailnet,
+                     household_devices=args.devices,
+                     captured_secs=args.captured_secs)
+    return report(findings, args.scenario, directory, transcript)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1229,10 +1267,21 @@ def main() -> int:
     parser.add_argument("--engine-log", default=DEV_ENGINE_LOG)
     parser.add_argument("--mac-process", default=DEV_APP_PROCESS)
     parser.add_argument("--out-dir")
+    parser.add_argument("--judge-dir",
+                        help="judge mac.log / phone.log / engine.log already "
+                             "in this directory instead of capturing new ones")
+    parser.add_argument("--devices", type=int, default=0,
+                        help="with --judge-dir: the household's device_count "
+                             "at the time the tapes were taken")
+    parser.add_argument("--captured-secs", type=float,
+                        help="with --judge-dir: how long the capture ran, so "
+                             "NO-SPINNER can tell waiting from waiting forever")
     args = parser.parse_args()
 
     if args.self_test:
         return self_test()
+    if args.judge_dir:
+        return judge_dir(args)
     return run(args)
 
 
