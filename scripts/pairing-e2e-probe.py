@@ -500,57 +500,84 @@ def inv_words_match(t: Transcript) -> Finding:
                    f"{len(mac_seen)} request(s)")
 
 
-def inv_advert_follows_window(t: Transcript) -> Finding:
-    """The advert has to follow the window, both ways.
+def _last_index(lines: list[str], needle: str) -> int:
+    found = [i for i, line in enumerate(lines) if needle in line]
+    return found[-1] if found else -1
 
-    MEASURED 2026-09-06 on the QA Mac, same binary, same network, same machine:
 
-        13:44:16  bonjour.published        <- one startup published
-        13:51:51  bonjour.skipped          <- the next one skipped
-        13:51 .. 13:55  the window opened and bound ten times
-                        and no advert was ever published again
+def _advert_live_at(lines: list[str], index: int) -> bool:
+    """Was an advert registered by position `index`, in EITHER vocabulary?
 
-    `bonjour.skipped` was terminal: the publisher filtered its targets once at
-    startup, so widening the listener later added a bind and never a record.
-    A Mac that boots with the window closed and no tailnet stays invisible
-    until someone restarts its engine — no test rig required, any person who
-    opens the app after a reboot. [jaime] found the static path in the code.
-
-    So this checks the property, not the symptom: after a window opens there
-    must be an advert, and after it closes the LAN advert must be withdrawn —
-    with no restart in between.
+    The fix removes the word `skipped` and adds `bonjour.reconciled` with
+    counts. Keying on the old name would make this invariant pass on the new
+    build because a string disappeared, not because the defect did — [jaime]
+    asked for the negative that stops exactly that, and he was right to.
     """
-    opened = t.engine_grep("local_network_visibility.opened") or t.engine_grep(
-        "household_listener.pairing_window_bound")
-    if not opened:
+    published = _last_index(lines[:index + 1], "bonjour.published")
+    # `registered_count=0` is the new way of saying "nothing is advertised".
+    withdrawn = max(
+        _last_index(lines[:index + 1], "bonjour.skipped"),
+        _last_index(lines[:index + 1], "bonjour.unregistered"),
+        max((i for i, l in enumerate(lines[:index + 1])
+             if "bonjour.reconciled" in l and "registered_count=0" in l),
+            default=-1),
+    )
+    return published > withdrawn
+
+
+def inv_advert_follows_window(t: Transcript) -> Finding:
+    """The advert has to follow the window, both ways, with no restart.
+
+    MEASURED 2026-09-06 on the QA Mac, same binary, same machine, same network:
+
+        13:44:16  bonjour.published     one startup published
+        13:51:51  bonjour.skipped       the next one skipped
+        13:51 .. 13:55  the window opened and bound ten times,
+                        and nothing was ever advertised again
+
+    The publisher filtered its targets once at startup, so widening the
+    listener later added a bind and never a record. A Mac that boots with the
+    window closed and no tailnet stays invisible until someone restarts its
+    engine — no test rig needed, just a person opening the app after a reboot.
+
+    This checks the PROPERTY and never the vocabulary: after a window opens
+    there must be a live advert, and after it closes with nothing else to
+    advertise the record must be gone. `bonjour.ready bound_count=0` followed
+    by an open window and no publish fails just as `skipped` did.
+
+    A caveat that belongs in the verdict, not in a footnote: `registered_count`
+    proves the backend returned, never that a phone can see it. Remote
+    observation with `dns-sd` from another machine stays the real proof of an
+    advert, and this invariant does not replace it. [jaime]
+    """
+    engine = t.engine
+    opens = [i for i, l in enumerate(engine)
+             if "local_network_visibility.opened" in l
+             or "household_listener.pairing_window_bound" in l]
+    if not opens:
         return Finding("ADVERT-FOLLOWS-WINDOW", "n/a",
                        "no pairing window was opened in this run")
 
-    published = t.engine_grep("bonjour.published")
-    skipped = t.engine_grep("bonjour.skipped")
+    last_open = opens[-1]
+    if not _advert_live_at(engine, len(engine) - 1) and last_open < len(engine):
+        # Was anything advertised AFTER the last open? Look forward from it.
+        after = engine[last_open:]
+        if not any("bonjour.published" in l for l in after):
+            return Finding("ADVERT-FOLLOWS-WINDOW", "fail",
+                           "a window opened and no advert followed it; this Mac "
+                           "is invisible until its engine restarts")
 
-    # Order matters: a publish from BEFORE the skip does not cover a window
-    # opened after it. Compare positions in the tape.
-    def last_index(needle: str) -> int:
-        found = [i for i, line in enumerate(t.engine) if needle in line]
-        return found[-1] if found else -1
-
-    last_publish = last_index("bonjour.published")
-    last_skip = last_index("bonjour.skipped")
-    last_open = last_index("local_network_visibility.opened")
-
-    if last_skip > last_publish and last_open > last_skip:
-        return Finding("ADVERT-FOLLOWS-WINDOW", "fail",
-                       "the engine skipped publishing at startup and the window "
-                       "opened afterwards with no advert following; this Mac is "
-                       "invisible until its engine restarts")
-    if not published:
-        return Finding("ADVERT-FOLLOWS-WINDOW", "fail",
-                       "the window opened and nothing was ever advertised")
-    if skipped and last_skip > last_publish:
-        return Finding("ADVERT-FOLLOWS-WINDOW", "fail",
-                       "the last thing the publisher did was skip; the advert "
-                       "is gone and no window can bring it back")
+    closes = [i for i, l in enumerate(engine)
+              if "pairing_window=closed" in l or "pairing_window\":\"closed" in l]
+    if closes and closes[-1] > last_open:
+        if _advert_live_at(engine, len(engine) - 1):
+            return Finding("ADVERT-FOLLOWS-WINDOW", "fail",
+                           "the window closed and a LAN advert is still "
+                           "registered; the home stays discoverable after the "
+                           "person dismissed the sheet")
+        return Finding("ADVERT-FOLLOWS-WINDOW", "pass",
+                       "the advert followed the window open and was withdrawn "
+                       "on close, with no restart")
     return Finding("ADVERT-FOLLOWS-WINDOW", "pass",
                    "the advert followed the window without a restart")
 
@@ -851,6 +878,42 @@ GOOD_ADVERT_FOLLOWS = Transcript(
 )
 
 
+# The fix removes the word `skipped`. This is the same defect wearing the new
+# vocabulary, and it must still fail — otherwise the invariant would pass
+# because a string went away. [jaime]
+BAD_READY_ZERO_THEN_WINDOW = Transcript(
+    mac=[], phone=[],
+    engine=["bonjour.ready bound_count=0 pairing_window=closed",
+            "local_network_visibility.opened",
+            "household_listener.pairing_window_bound",
+            "local_network_visibility.opened"],
+)
+
+GOOD_RECONCILED_ON_OPEN = Transcript(
+    mac=[], phone=[],
+    engine=["bonjour.ready bound_count=0 pairing_window=closed",
+            "local_network_visibility.opened",
+            "bonjour.published",
+            "bonjour.reconciled target_count=1 registered_count=1 "
+            "retry_registration=false pairing_window=open"],
+)
+
+GOOD_WITHDRAWN_ON_CLOSE = Transcript(
+    mac=[], phone=[],
+    engine=["local_network_visibility.opened",
+            "bonjour.published",
+            "bonjour.reconciled target_count=1 registered_count=1 pairing_window=open",
+            "bonjour.reconciled target_count=0 registered_count=0 pairing_window=closed"],
+)
+
+BAD_STILL_ADVERTISED_AFTER_CLOSE = Transcript(
+    mac=[], phone=[],
+    engine=["local_network_visibility.opened",
+            "bonjour.published",
+            "bonjour.reconciled target_count=1 registered_count=1 pairing_window=closed"],
+)
+
+
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
@@ -918,6 +981,15 @@ def self_test() -> int:
          BAD_SKIP_IS_TERMINAL, True, 1, {"ADVERT-FOLLOWS-WINDOW": "fail"}),
         ("good, the advert follows a window opened after a skip",
          GOOD_ADVERT_FOLLOWS, True, 1, {"ADVERT-FOLLOWS-WINDOW": "pass"}),
+        ("bad, ready with zero then a window and no publish",
+         BAD_READY_ZERO_THEN_WINDOW, True, 1, {"ADVERT-FOLLOWS-WINDOW": "fail"}),
+        ("good, reconciled on open after a zero start",
+         GOOD_RECONCILED_ON_OPEN, True, 1, {"ADVERT-FOLLOWS-WINDOW": "pass"}),
+        ("good, withdrawn on close", GOOD_WITHDRAWN_ON_CLOSE, True, 1,
+         {"ADVERT-FOLLOWS-WINDOW": "pass"}),
+        ("bad, still advertised after the window closed",
+         BAD_STILL_ADVERTISED_AFTER_CLOSE, True, 1,
+         {"ADVERT-FOLLOWS-WINDOW": "fail"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
          {"PROFILE-ISOLATED": "n/a"}),
         ("a claim was attempted and stayed in profile",
