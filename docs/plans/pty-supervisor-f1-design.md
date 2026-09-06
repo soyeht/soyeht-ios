@@ -31,7 +31,7 @@ que nascer aqui.
 ### Desenho adotado — segmentos append-only
 
 ```
-conversations/<conversation_id>/
+conversations/<conversation_id>/<session_instance_id>/
   meta.json                 ← instância corrente, primeiro offset retido
   000000000000000000.seg    ← nome = offset lógico do primeiro byte
   000000000000524288.seg
@@ -50,6 +50,16 @@ conversations/<conversation_id>/
   incompleto no fim. Só a cauda; tudo antes já é imutável.
 - **Registro com moldura verificável**: `len` + `crc32` + payload. Uma cauda
   cortada no meio é detectada, não adivinhada.
+- Tamanho de segmento e orçamento de retenção contam **bytes físicos**,
+  incluindo cabeçalhos. Append pode exceder temporariamente o orçamento por
+  um cabeçalho e um registro limitado; falha de retenção é resultado separado
+  do append já confirmado, nunca convite para reenviar os mesmos bytes.
+- Cabeçalho de segmento com magic, versão e offset inicial; formato antigo,
+  checksum inválido e buraco entre segmentos são erros, não log vazio. Só
+  registro incompleto no último segmento admite truncamento automático.
+- Diretório por instância e lock exclusivo de escritor: uma nova execução
+  nunca reutiliza o cursor de uma sessão anterior. Replay captura um limite
+  de leitura e não segura lock durante envio de rede.
 - **`meta.json` é escrito por troca atômica** (tmp + rename), e mesmo assim
   não é a autoridade: os nomes dos segmentos são. Ele acelera, não decide.
 
@@ -96,8 +106,9 @@ Então a identidade atravessa até o app:
 | `DELETE .../{conversation_id}` | precondição `If-Match: <session_instance_id>`; sem ela, **412** |
 | WS `attach` | vinculado à instância; instância errada não anexa |
 
-**Cliente antigo** (sem `If-Match`): política explícita — a requisição é aceita,
-mas registrada como sem garantia contra ordem atrasada. Escrito, não implícito.
+**Cliente sem precondição:** mutação no backend novo é recusada. Leitura legada
+pode ser compatível; backend legado durante migração é explícito. Não existe
+fallback silencioso que selecione a instância atual para um DELETE antigo.
 
 ### Regras de concorrência
 
@@ -111,6 +122,29 @@ mas registrada como sem garantia contra ordem atrasada. Escrito, não implícito
 - Repetir `CREATE` depois do fechamento **não ressuscita**: chave de
   idempotência da intenção + tombstone com prazo documentado. "Reanexar à
   instância esperada" e "criar nova execução" são operações diferentes.
+
+### Contrato inicial do F1b
+
+`intent_id` é UUID de uma intenção de criação, congelada com argv/cwd/env e
+dimensões iniciais. Repetir a mesma intenção viva devolve a mesma instância;
+alterar os parâmetros devolve `intent_mismatch`. Depois do fim ou de um
+restart do supervisor, a intenção consumida não executa novamente.
+
+A reserva da intenção é persistida antes do spawn. Nesta primeira versão os
+tombstones não expiram: há teto explícito de 4096 intenções e recusa
+`intent_limit` ao atingir o teto. GC que permita reutilizar uma intenção antiga
+não será introduzido implicitamente. Essa política precisa ser reavaliada com
+a matriz de limites do F4 antes da ativação em produção.
+
+O stream de attach é dedicado à saída. WRITE/RESIZE/CLOSE usam conexão de
+comandos e identificam a instância. ACK perdido de WRITE é resultado incerto:
+o cliente não repete automaticamente a escrita. EOF não equivale a EXIT.
+`ReplayRead::Gap` não contém bytes; o transporte envia GAP antes de avançar.
+
+Disco indisponível durante append mantém, por ora, a política explícita do
+PTY existente: encerra a sessão e informa `log_write_failed`. Retenção falha
+é diagnosticada separadamente e não encerra sessão. São falhas distintas da
+troca do engine; F4 precisa exercitá-las antes do aceite final.
 
 ---
 
