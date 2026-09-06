@@ -263,31 +263,23 @@ final class PairedMacsStore {
             """)
     }
 
-    /// tailnet / lan / loopback / other — decided here rather than by whoever
-    /// reads the log, so one rule serves every reader.
+    /// The class of the address written down, as the ONE classifier decides
+    /// it.
+    ///
+    /// The first version of this reimplemented the CGNAT and RFC1918 ranges
+    /// inline. [jaime] caught it in SSOT review: `HostClassifier` already
+    /// owns that rule and `PairingAddressPolicy.transport` already uses it,
+    /// so a second copy — even a diagnostic one — is a second answer waiting
+    /// to disagree with the first. This subsystem got a 4/10 for exactly that
+    /// shape: four owners for one decision.
+    ///
+    /// The log is what the NO-SILENT-LAN invariant reads, so it has to agree
+    /// with the policy that chose the address. Deriving both from the same
+    /// function is what makes "stored tailnet" mean the same thing on both
+    /// sides of the tape.
     static func addressClass(_ host: String) -> String {
-        if host.hasPrefix("127.") || host == "localhost" || host == "::1" {
-            return "loopback"
-        }
-        // 100.64.0.0/10 is the CGNAT block Tailscale hands out, and
-        // fd7a:115c:a1e0::/48 its IPv6 range.
-        if host.hasPrefix("fd7a:115c:a1e0") { return "tailnet" }
-        let parts = host.split(separator: ".")
-        if parts.count == 4, parts[0] == "100",
-           let second = Int(parts[1]), (64...127).contains(second) {
-            return "tailnet"
-        }
-        if host.hasPrefix("192.168.") || host.hasPrefix("10.")
-            || host.hasPrefix("169.254.") || host.hasSuffix(".local") {
-            return "lan"
-        }
-        if parts.count == 4, parts[0] == "172",
-           let second = Int(parts[1]), (16...31).contains(second) {
-            return "lan"
-        }
-        return "other"
+        HostClassifier.classify(host).rawValue
     }
-
 
     func upsertMac(
         macID: UUID,
