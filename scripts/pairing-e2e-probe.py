@@ -195,16 +195,23 @@ def inv_tailnet_kept(t: Transcript, phone_has_tailnet: bool) -> Finding:
 def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
     if phone_has_tailnet:
         return Finding("LAN-WORKS", "n/a", "this scenario does not exercise pure LAN")
-    # Either ceremony's evidence of an address actually dialled. The QR path
-    # posts a confirm; the device-pairing path resolves an engine and talks to
-    # it. Looking only for the confirm made this report "never reached the
-    # confirm step" about a run that had no confirm step to reach. [jaime]
+    # The address the phone actually SENT to, never the one it discovered.
+    # `resolveDiscoveredMac` and `mac_browser.endpoint` are discovery: the
+    # final selection can still change afterwards, so treating them as the
+    # dialled address would attribute a LAN pairing to a run that sent
+    # somewhere else entirely. [jaime]
     tried = (first_host(t.phone_grep("pair.confirm.post"), "host")
-             or first_host(t.phone_grep("resolveDiscoveredMac.entry"), "engines")
-             or first_host(t.phone_grep("mac_browser.endpoint"), "endpoint"))
+             or first_host(t.phone_grep("pair.request.post"), "host")
+             or first_host(t.phone_grep("pair.endpoint source="), "host"))
     if tried is None:
-        return Finding("LAN-WORKS", "fail",
-                       "the phone never dialled any address")
+        discovered = (t.phone_grep("resolveDiscoveredMac.entry")
+                      or t.phone_grep("mac_browser.endpoint"))
+        if discovered:
+            return Finding("LAN-WORKS", "n/a",
+                           "the phone discovered an address but nothing records "
+                           "which one it SENT the request to; discovery is not "
+                           "selection, so this cannot be judged from the tapes")
+        return Finding("LAN-WORKS", "fail", "the phone never dialled any address")
     if classify(tried) != "lan":
         return Finding("LAN-WORKS", "fail",
                        f"no tailnet available, yet it tried {classify(tried)} ({tried})")
@@ -213,10 +220,22 @@ def inv_lan_works(t: Transcript, phone_has_tailnet: bool) -> Finding:
                        f"paired over the LAN ({tried}): the engine accepted "
                        "and the phone saved a session")
     if engine_accepted(t) and not phone_concluded(t):
+        # Acceptance is not the phone's outcome: after approval it still has to
+        # poll, validate the certificate and persist. Calling that divergence
+        # while the phone is inside its own window would report a defect the
+        # product does not have. Only a terminal failure or an expired deadline
+        # settles it. [jaime]
+        terminal = (t.phone_grep("pair.result=failed") or t.phone_grep("pair.failed")
+                    or t.phone_grep("expired") or t.engine_grep("expired"))
+        if not terminal:
+            return Finding("LAN-WORKS", "n/a",
+                           f"the engine accepted over the LAN ({tried}) and the "
+                           "phone is still inside its poll/validate/persist "
+                           "window; neither a failure nor an expiry yet")
         return Finding("LAN-WORKS", "fail",
                        f"the engine accepted over the LAN ({tried}) and the "
-                       "phone never ended up with a session — the two ends "
-                       "disagree about whether this worked")
+                       "phone ended without a session — the two ends disagree "
+                       "about whether this worked")
     if t.phone_grep("pair.failed") or t.phone_grep("pair.result=failed"):
         return Finding("LAN-WORKS", "fail",
                        f"tried the LAN ({tried}) and the pairing failed")
@@ -681,7 +700,8 @@ GOOD_SESSION_TRULY_ABSENT = Transcript(
 # agree, or "it worked" is only true on one machine.
 BAD_ENGINE_ONLY = Transcript(
     mac=[],
-    phone=["pair.confirm.post host=192.168.1.20 port=8101"],
+    phone=["pair.confirm.post host=192.168.1.20 port=8101",
+           "pair.result=failed"],
     engine=["device_pairing.approve.success request_digest=" + "c" * 64],
 )
 
@@ -691,6 +711,19 @@ BAD_REQUEST_DIGEST_IS_NOT_WORDS = Transcript(
     phone=["pairing_review_digest=" + SAME],
     engine=["device_pairing.request.success request_digest=" + SAME,
             "device_pairing.approve.success request_digest=" + SAME],
+)
+
+
+PENDING_ENGINE_ACCEPTED = Transcript(
+    mac=[],
+    phone=["pair.confirm.post host=192.168.1.20 port=8101"],
+    engine=["device_pairing.approve.success request_digest=" + "d" * 64],
+)
+
+DISCOVERY_ONLY = Transcript(
+    mac=[],
+    phone=["resolveDiscoveredMac.entry engines=http://192.168.1.20:8101"],
+    engine=[],
 )
 
 
@@ -743,8 +776,12 @@ def self_test() -> int:
         # "no claim crossed the profile line". Measured in the rehearsal of
         # 2026-09-05: the driver failed before touching anything and this
         # still reported ok.
-        ("bad, engine accepted but the phone has no session",
+        ("bad, engine accepted and the phone ended with no session",
          BAD_ENGINE_ONLY, False, 1, {"LAN-WORKS": "fail"}),
+        ("engine accepted, phone still inside its window",
+         PENDING_ENGINE_ACCEPTED, False, 1, {"LAN-WORKS": "n/a"}),
+        ("discovered an address but no record of the send",
+         DISCOVERY_ONLY, False, 1, {"LAN-WORKS": "n/a"}),
         ("bad, the engine's request digest is not the words",
          BAD_REQUEST_DIGEST_IS_NOT_WORDS, True, 1, {"WORDS-MATCH": "fail"}),
         ("no claim attempted at all", BAD_SPINNER, True, 1,
