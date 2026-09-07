@@ -196,6 +196,36 @@ sign_engine_helpers() {
     done
 }
 
+# ── The cross-repo terminal contract ──────────────────────────────────────────
+#
+# `check-terminal-contract.py` drives a real Swift request through a real Rust
+# engine and back, rejecting seven boundary defects neither repository's own
+# suite can see: the Swift tests cannot fake a supervisor, and the Rust tests
+# cannot fake the client.
+#
+# Until now nothing called it. It ran for 0.1.50 because someone remembered —
+# a property of that afternoon, not of the release.
+#
+# The rules live in the governed contract, not here: which commit the checkout
+# must be on, that it must be clean, and that git refusing to answer is a
+# refusal. This script names no commit of its own — a second copy of the pin in
+# shell is the habit that let the pin, the floor and the checker drift apart in
+# the first place.
+run_terminal_contract() {
+    if [[ -z "${THEYOS_CHECKOUT:-}" ]]; then
+        local pinned
+        pinned="$(grep -vE '^\s*(#|$)' "${REPO_ROOT}/scripts/theyos-engine.version" | head -1 | tr -d '[:space:]')"
+        echo "error: THEYOS_CHECKOUT is not set, so the cross-repo terminal contract cannot run." >&2
+        echo "       Releases are cut with it, not around it. Clone the engine at the pinned" >&2
+        echo "       tag and point at it:" >&2
+        echo "         git clone --branch v${pinned} https://github.com/soyeht/theyos.git /tmp/theyos-pinned" >&2
+        echo "         THEYOS_CHECKOUT=/tmp/theyos-pinned bash scripts/build-dmg.sh" >&2
+        exit 1
+    fi
+    python3 "${REPO_ROOT}/scripts/ci/check-governed-macos-release.py" \
+        --run-terminal-contract "${THEYOS_CHECKOUT}"
+}
+
 # ── The engine artifact receipt ───────────────────────────────────────────────
 #
 # The receipt binds the shipped engine to its version, source commit, Mach-O
@@ -316,6 +346,7 @@ if [[ ! -f "${ENGINE_AGENT}" ]]; then
     exit 1
 fi
 
+run_terminal_contract
 validate_engine_receipt "${APP_PATH}" "input, before any signing"
 sign_embedded_sparkle
 sign_engine_helpers "${APP_PATH}"
