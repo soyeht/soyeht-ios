@@ -32505,103 +32505,103 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لم يتم تأكيد تحديث المحرك بعد. قد يكون المحرك غير متاح، وفتح طرفيات جديدة متوقف مؤقتاً. استأنف هنا للتحقق والمتابعة؛ لا حاجة لإعادة تشغيل التطبيق."
+            "value": "لم يتم تأكيد تحديث المحرك بعد. قد يكون المحرك غير متاح. استأنف هنا للتحقق والمتابعة؛ لا حاجة لإعادة تشغيل التطبيق."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "ইঞ্জিন আপডেট এখনো নিশ্চিত হয়নি। ইঞ্জিন অনুপলব্ধ থাকতে পারে এবং নতুন টার্মিনাল খোলা স্থগিত আছে। যাচাই করে এগোতে এখান থেকে আবার শুরু করুন; অ্যাপ পুনরায় চালু করার দরকার নেই।"
+            "value": "ইঞ্জিন আপডেট এখনো নিশ্চিত হয়নি। ইঞ্জিন অনুপলব্ধ থাকতে পারে। যাচাই করে এগোতে এখান থেকে আবার শুরু করুন; অ্যাপ পুনরায় চালু করার দরকার নেই।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Engine-Update ist noch nicht bestätigt. Die Engine kann nicht verfügbar sein; neue Terminals sind pausiert. Setze das Update hier zum Prüfen und Fortfahren fort. Ein Neustart der App ist nicht nötig."
+            "value": "Das Engine-Update ist noch nicht bestätigt. Die Engine ist möglicherweise nicht verfügbar. Setze das Update hier zum Prüfen und Fortfahren fort. Ein Neustart der App ist nicht nötig."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The engine update has not been confirmed. The engine may be unavailable and new launches are paused. Resume here to check and continue; restarting the app is not required."
+            "value": "The engine update has not been confirmed. The engine may be unavailable. Resume here to check and continue; restarting the app is not required."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La actualización del motor aún no se ha confirmado. El motor puede no estar disponible y la apertura de nuevos terminales está pausada. Reanuda aquí para comprobar y continuar; no necesitas reiniciar la app."
+            "value": "La actualización del motor aún no se ha confirmado. El motor puede no estar disponible. Reanuda aquí para comprobar y continuar; no necesitas reiniciar la app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La mise à jour du moteur n’est pas encore confirmée. Le moteur peut être indisponible et l’ouverture de nouveaux terminaux est suspendue. Reprenez ici pour vérifier et continuer ; inutile de redémarrer l’app."
+            "value": "La mise à jour du moteur n’est pas encore confirmée. Le moteur peut être indisponible. Reprenez ici pour vérifier et continuer ; inutile de redémarrer l’app."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इंजन अपडेट की अभी पुष्टि नहीं हुई है। इंजन अनुपलब्ध हो सकता है और नए टर्मिनल खोलना रुका है। जाँचने और जारी रखने के लिए यहाँ से फिर शुरू करें; ऐप पुनः शुरू करना आवश्यक नहीं है।"
+            "value": "इंजन अपडेट की अभी पुष्टि नहीं हुई है। इंजन अनुपलब्ध हो सकता है। जाँचने और जारी रखने के लिए यहाँ से फिर शुरू करें; ऐप पुनः शुरू करना आवश्यक नहीं है।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pembaruan mesin belum dikonfirmasi. Mesin mungkin tidak tersedia dan pembukaan terminal baru dijeda. Lanjutkan di sini untuk memeriksa dan meneruskan; aplikasi tidak perlu dimulai ulang."
+            "value": "Pembaruan mesin belum dikonfirmasi. Mesin mungkin tidak tersedia. Lanjutkan di sini untuk memeriksa dan meneruskan; aplikasi tidak perlu dimulai ulang."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エンジンの更新はまだ確認されていません。エンジンが利用できず、新しいターミナルの起動が停止されている場合があります。ここから再開して確認し、続行してください。アプリの再起動は不要です。"
+            "value": "エンジンの更新はまだ確認されていません。エンジンが利用できない場合があります。ここから再開して確認し、続行してください。アプリの再起動は不要です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "엔진 업데이트가 아직 확인되지 않았습니다. 엔진을 사용할 수 없을 수 있으며 새 터미널 열기는 일시 중지됩니다. 여기에서 재개하여 확인하고 계속하세요. 앱을 재시작할 필요는 없습니다."
+            "value": "엔진 업데이트가 아직 확인되지 않았습니다. 엔진을 사용할 수 없을 수 있습니다. 여기에서 재개하여 확인하고 계속하세요. 앱을 재시작할 필요는 없습니다."
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "इंजिन अपडेटची अद्याप पुष्टी झालेली नाही. इंजिन अनुपलब्ध असू शकते आणि नवीन टर्मिनल उघडणे थांबवले आहे. तपासून पुढे जाण्यासाठी येथून पुन्हा सुरू करा; अॅप पुन्हा चालू करण्याची गरज नाही."
+            "value": "इंजिन अपडेटची अद्याप पुष्टी झालेली नाही. इंजिन अनुपलब्ध असू शकते. तपासून पुढे जाण्यासाठी येथून पुन्हा सुरू करा; अॅप पुन्हा चालू करण्याची गरज नाही."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A atualização do engine ainda não foi confirmada. O engine pode estar indisponível e a abertura de novos terminais está pausada. Retome aqui para verificar e continuar; não é necessário reiniciar o app."
+            "value": "A atualização do engine ainda não foi confirmada. O engine pode estar indisponível. Retome aqui para verificar e continuar; não é necessário reiniciar o app."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "A atualização do engine ainda não foi confirmada. O engine pode estar indisponível e a abertura de novos terminais está em pausa. Retome aqui para verificar e continuar; não é necessário reiniciar a aplicação."
+            "value": "A atualização do engine ainda não foi confirmada. O engine pode estar indisponível. Retome aqui para verificar e continuar; não é necessário reiniciar a aplicação."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Обновление движка ещё не подтверждено. Движок может быть недоступен, а открытие новых терминалов приостановлено. Продолжите здесь для проверки; перезапускать приложение не нужно."
+            "value": "Обновление движка ещё не подтверждено. Движок может быть недоступен. Продолжите здесь для проверки; перезапускать приложение не нужно."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "ఇంజిన్ నవీకరణ ఇంకా నిర్ధారించబడలేదు. ఇంజిన్ అందుబాటులో లేకపోవచ్చు, కొత్త టెర్మినల్‌లను తెరవడం నిలిపివేయబడింది. తనిఖీ చేసి ముందుకు వెళ్లడానికి ఇక్కడ కొనసాగించండి; యాప్‌ను మళ్లీ ప్రారంభించాల్సిన అవసరం లేదు."
+            "value": "ఇంజిన్ నవీకరణ ఇంకా నిర్ధారించబడలేదు. ఇంజిన్ అందుబాటులో లేకపోవచ్చు. తనిఖీ చేసి ముందుకు వెళ్లడానికి ఇక్కడ కొనసాగించండి; యాప్‌ను మళ్లీ ప్రారంభించాల్సిన అవసరం లేదు."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "انجن کی اپ ڈیٹ کی ابھی تصدیق نہیں ہوئی۔ انجن دستیاب نہ ہو سکتا ہے اور نئے ٹرمینل کھولنا رکا ہوا ہے۔ جانچ کر آگے بڑھنے کے لیے یہاں سے دوبارہ شروع کریں؛ ایپ کو دوبارہ چلانے کی ضرورت نہیں۔"
+            "value": "انجن کی اپ ڈیٹ کی ابھی تصدیق نہیں ہوئی۔ انجن دستیاب نہ ہو سکتا ہے۔ جانچ کر آگے بڑھنے کے لیے یہاں سے دوبارہ شروع کریں؛ ایپ کو دوبارہ چلانے کی ضرورت نہیں۔"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "引擎更新尚未确认。引擎可能不可用，新终端的启动已暂停。请在此恢复操作以检查并继续，无需重启应用。"
+            "value": "引擎更新尚未确认。引擎可能不可用。请在此恢复操作以检查并继续，无需重启应用。"
           }
         }
       }

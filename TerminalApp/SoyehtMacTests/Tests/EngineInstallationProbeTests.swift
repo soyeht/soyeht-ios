@@ -29,9 +29,16 @@ final class EngineInstallationProbeTests: XCTestCase {
     }
 
     func testLegacyRequiresSuccessfulResponseStableKernelIdentityAndProfileOwnership() throws {
-        for fault in ["none", "http", "emptyJSON", "pidReuse", "otherProfile"] {
+        for fault in ["none", "emptyVersionCache", "malformedUnknown", "http", "emptyJSON", "pidReuse", "otherProfile"] {
+            let body: String
+            switch fault {
+            case "emptyJSON": body = "{}"
+            case "emptyVersionCache": body = #"{"version":"unknown","update_available":false}"#
+            case "malformedUnknown": body = #"{"version":"unknown"}"#
+            default: body = #"{"version":"0.1.30"}"#
+            }
             let runtime: EngineRuntimeIdentity? = fault == "http" ? nil : try JSONDecoder().decode(
-                EngineRuntimeIdentity.self, from: Data((fault == "emptyJSON" ? "{}" : #"{"version":"0.1.30"}"#).utf8))
+                EngineRuntimeIdentity.self, from: Data(body.utf8))
             var reads = 0
             let owner = fault == "otherProfile" ? "Soyeht" : "SoyehtDev"
             let observer = EngineInstallationProbe(supervisor: spec,
@@ -56,8 +63,8 @@ final class EngineInstallationProbeTests: XCTestCase {
                     return .init(pid: pid, startSeconds: fault == "pidReuse" && reads > 1 ? 101 : 100, startMicroseconds: 1)
                 })
             switch observer.observeEngine() {
-            case .legacy: XCTAssertEqual(fault, "none")
-            case .unknown: XCTAssertNotEqual(fault, "none")
+            case .legacy: XCTAssertTrue(["none", "emptyVersionCache"].contains(fault))
+            case .unknown: XCTAssertFalse(["none", "emptyVersionCache"].contains(fault))
             default: XCTFail("Legacy/unknown must remain separate from supervised identity")
             }
         }

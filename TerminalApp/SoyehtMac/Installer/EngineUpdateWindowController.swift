@@ -140,7 +140,7 @@ private struct EngineLifecycleView: View {
             case .journalUnavailable:
                 return LocalizedStringResource("engineLifecycle.journal", defaultValue: "The saved update state could not be read or written safely. New terminal launches remain paused. Resume to recover an interrupted write without forgetting the pending update.")
             default:
-                return LocalizedStringResource("engineLifecycle.pending", defaultValue: "The engine update has not been confirmed. The engine may be unavailable and new launches are paused. Resume here to check and continue; restarting the app is not required.")
+                return LocalizedStringResource("engineLifecycle.pending", defaultValue: "The engine update has not been confirmed. The engine may be unavailable. Resume here to check and continue; restarting the app is not required.")
             }
         case .readyAfterSupervisorRestart:
             return LocalizedStringResource("engineLifecycle.restarted", defaultValue: "The engine is ready. The terminal service restarted during the update, so earlier sessions could not be preserved. You can open new terminals.")

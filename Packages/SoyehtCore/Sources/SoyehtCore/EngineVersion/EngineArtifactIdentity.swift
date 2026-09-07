@@ -49,6 +49,7 @@ public struct PTYSupervisorStatus: Decodable, Equatable, Sendable {
 
 public struct EngineRuntimeIdentity: Decodable, Sendable {
     public let version: String?
+    public let updateAvailable: Bool?
     public let artifact: EngineArtifactIdentity?
     public let terminalBackend: String?
     public let terminalSupervisorBootID: UUID?
@@ -59,6 +60,7 @@ public struct EngineRuntimeIdentity: Decodable, Sendable {
         case version
         case artifact
         case terminalBackend = "terminal_backend"
+        case updateAvailable = "update_available"
         case terminalSupervisorBootID = "terminal_supervisor_boot_id"
         case processID = "process_id"
         case processBootID = "process_boot_id"
@@ -71,6 +73,10 @@ public struct EngineRuntimeIdentity: Decodable, Sendable {
         guard artifact == nil, terminalBackend == nil, processID == nil,
               processBootID == nil, terminalSupervisorBootID == nil,
               let version else { return false }
+        // Published engines report this exact legacy response while their
+        // version cache is empty. It identifies the response contract only;
+        // migration still requires independent kernel/job identity and consent.
+        if version == "unknown", updateAvailable != nil { return true }
         let components = version.split(separator: ".", omittingEmptySubsequences: false)
         return components.count == 3 && components.allSatisfy { UInt($0) != nil }
     }
