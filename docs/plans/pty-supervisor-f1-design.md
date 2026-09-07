@@ -215,27 +215,31 @@ estado de emulador que foi perdido. **Rotação deliberada e
 "scrollback integral para sempre" não podem ser garantias simultâneas** — e a
 segunda é a que vai embora.
 
-## Checkpoint F2a — integração sem ativação
+## Checkpoint histórico F2a — integração sem ativação
+
+Este checkpoint registra a ordem da implementação. A ativação e a troca no Dev
+foram medidas posteriormente; veja o [aceite final](pty-supervisor-acceptance.md).
 
 O adapter HTTP/WS e o consumidor Mac estão implementados. A variável
 `THEYOS_PTY_SUPERVISOR_SOCKET` seleciona o backend; ausente mantém o legado,
 presente e indisponível retorna erro sem fallback. Nenhum plist instalado
-foi alterado por esta fatia.
+havia sido alterado no checkpoint F2a.
 
 O gate `scripts/check-terminal-contract.py` exige os dois checkouts: o Swift
 gera CREATE e teclado JSON; Rust executa HTTP/UDS/PTY; Swift decodifica a
-resposta e os frames reais. Quatro defeitos deliberados precisam reprovar:
-prefixo de saída, instância, tipo de teclado e chave de intent. Compilação
+resposta e os frames reais. O gate atual exige sete defeitos deliberados reprovados:
+prefixo de saída, instância, imagem carregada, boot do supervisor, boot do supervisor
+declarado pelo engine, tipo de teclado e chave de intent. Compilação
 falhada e teste ignorado não contam como controle negativo válido.
 
 O teste do adapter recria o servidor HTTP mantendo o daemon e a identidade
 da sessão; não mata o processo completo do engine. O ensaio de cancelamento
 exercita as duas ordens, repetição e intent antigo diante de instância nova.
-Ainda faltam morte/troca do engine instalado, ciclo de vida launchd e migração
-de sessões legadas para o aceite final. Os limites/GC de
-F4 descritos acima já têm ensaios locais, sem ativação do backend instalado.
+Naquele checkpoint ainda faltavam morte/troca do engine instalado, ciclo de vida
+launchd e migração legada. Esses ensaios foram concluídos no Dev. Os limites/GC
+de F4 descritos acima têm ensaios isolados, que não se confundem com a bancada.
 
-Antes de entregar o supervisor como componente instalado, seus eventos precisam
+Antes de entregar publicamente o supervisor, seus eventos precisam
 entrar no diagnóstico coletado com procedência verificada. A lista governada
 `scripts/ci/engine-safe-stages.txt` cobre hoje o engine; não se presume que ela
 inclua `ptyd.archive.unmanaged` ou os demais eventos do novo processo.
@@ -256,8 +260,8 @@ Isso não executa `main` completo do engine, não altera launchd e não testa a
 renderização do app. O ensaio mede a arquitetura nova, com dono e HTTP em
 processos separados. O engine publicado ainda hospeda ambos no mesmo processo;
 seu controle negativo de 0/2 continua válido e não contradiz este positivo local.
-A sobrevivência instalada só será afirmada após entregar essa separação e medir
-sua troca sob launchd no Mac. A sonda Dev foi incorporada de `fdcb922b`, corrigida para
+A sobrevivência instalada foi medida separadamente sob launchd no Mac e consta
+no aceite final. A sonda Dev foi incorporada de `fdcb922b`, corrigida para
 chamar `kickstart -k` pelo nome certo, usar desafio novo por tentativa e decodificar
 o protocolo supervisionado. Seu relatório distingue saída sem attach de saída
 com engine ausente; não se atribui a ela a cobertura adicional do ensaio Rust.

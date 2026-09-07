@@ -1,5 +1,11 @@
 # Sessões que sobrevivem à troca do engine
 
+**Estado em 2026-09-07:** implementação e aceite no Dev concluídos, incluindo
+migração pela UI, controles de falha, pane real, troca A→B e recuperação após
+ausência prolongada. O [registro de aceite](pty-supervisor-acceptance.md) delimita
+as provas e artefatos. Este plano conserva a sequência e o diagnóstico original;
+a entrega pública e a virada de produção (F5) permanecem separadas.
+
 **Objetivo, em uma frase:** trocar o engine passa a ser desconectar e reconectar
 um transporte, em vez de matar todos os terminais.
 

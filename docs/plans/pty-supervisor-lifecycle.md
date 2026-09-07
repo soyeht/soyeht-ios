@@ -223,8 +223,9 @@ integração. A sonda Python agora mede shell, job longo e TUI separados, com
 escritores liberados apenas durante ausência observada por processo e porta,
 e espera todas as sentinelas DONE antes de recarregar. Seus controles isolados
 não substituem as corridas do Dev instalado. A migração e a matriz de falhas
-foram medidas no bundle assinado, conforme o registro abaixo; a substituição
-A→B continua sendo um aceite separado.
+foram medidas no bundle assinado, conforme o registro abaixo. A substituição
+A→B e a recuperação após ausência prolongada também foram medidas;
+o [aceite final no Dev](pty-supervisor-acceptance.md) registra os artefatos e limites.
 
 O pacote publicado 0.1.30 não contém supervisor nem recibo e é recusado
 deliberadamente. Não integrar o requisito ao main sem o pacote correspondente e
@@ -265,8 +266,15 @@ bootout (8 segundos), não à corrida SIGKILL em que o launchd voltou cedo.
 A pane real também passou pelo resize (tamanho consultado no PTY), Ctrl-Z/fg,
 Ctrl-C e relaunch com UTF-8 partido. PID, início, pai supervisor e instância
 foram comparados antes/depois; o caractere terminou de chegar com o app fechado
-e foi remontado pelo replay. A substituição entre duas imagens supervisionadas
-continua pendente, com uma pane viva preservada para esse ensaio.
+e foi remontado pelo replay. A substituição A→B, com a mesma versão e imagens
+diferentes, manteve supervisor, dois shells, instâncias e scrollback. O cliente
+final `6deb4da8` foi instalado depois sem trocar novamente o engine B.
+
+Na última corrida, o engine ficou ausente por 50 segundos, incluindo 37 segundos
+depois de o app registrar a perda. A fita contém 32 recusas retentáveis e duas
+restaurações após o retorno, sem relaunch do app, sem reabrir panes e sem NativePTY.
+PID/início/pai dos shells e instâncias permaneceram iguais. Isso fecha a recuperação
+durante ausência prolongada; não é medição dos intervalos exatos de backoff.
 
 A primeira rodada de migração terminou cedo demais durante a subida do engine.
 O coordenador agora usa orçamento monotônico de 30 segundos, além do teto de
