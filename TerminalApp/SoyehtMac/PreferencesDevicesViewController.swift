@@ -597,8 +597,13 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
                 let outcome = await SetupInvitationListener(engineBaseURL: baseURL, existingHouse: house).listen()
                 guard !Task.isCancelled else { return }
                 if case .invitationClaimed = outcome {
+                    // A claim is a delivered candidate, not a connection: the
+                    // person has not tapped anything on the phone yet and the
+                    // shared secret has not been exercised. "Connected" is only
+                    // ever said of an authenticated presence, and that is
+                    // observed on the phone, not here.
                     setStatus(firstOwner ? "iPhone found. Compare the home code and finish on your iPhone."
-                        : "iPhone found. Start connecting on the iPhone, then review its approval request.")
+                        : "Invitation sent. Compare the home code and tap Connect on your iPhone.")
                     return
                 }
                 try? await Task.sleep(for: .milliseconds(700))
