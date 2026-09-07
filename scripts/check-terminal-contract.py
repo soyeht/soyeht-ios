@@ -6,6 +6,7 @@ import os
 import signal
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -75,6 +76,8 @@ def main():
                 swift / "Packages/SoyehtCore/Tests/SoyehtCoreTests/LocalTerminalCrossRepoTests.swift"]
     if any(not path.is_file() for path in required):
         raise SystemExit("FAIL: both matching checkouts are required; skipping is not allowed")
+    subprocess.run([sys.executable, str(swift / "scripts/check-engine-package-contract.py"),
+                    "--theyos-repo", str(args.theyos.resolve())], check=True, timeout=120)
     with tempfile.TemporaryDirectory(prefix="pty-contract-") as temporary:
         env = os.environ.copy()
         env["SOYEHT_TERMINAL_CONTRACT_DIR"] = temporary

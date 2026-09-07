@@ -56,24 +56,10 @@ enum PTYSupervisorInstaller {
         let runner: (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result = {
             try EngineCommandRunner.runBlocking(executable: $0, arguments: $1, timeout: $2)
         }
-        let probe = EngineInstallationProbe(supervisor: installation,
-                                            enginePlist: EngineBackgroundAgent.installedPlistURL(label: installation.profile.engineLaunchdLabel, home: installation.home),
-                                            expectedEngineProgram: "/bin/zsh", uid: getuid(), run: runner,
-                                            readRuntime: { nil })
+        let probe = PTYSupervisorProbe(supervisor: installation, uid: getuid(), run: runner)
         return ensure(protocolVersion: protocolVersion, operations: .init(
-            observe: { probe.observeSupervisor() },
-            isAbsent: {
-                for domain in ["user", "gui"] {
-                    guard let result = try? runner(URL(fileURLWithPath: "/bin/launchctl"),
-                                                   ["print", "\(domain)/\(getuid())/\(installation.label)"], 5),
-                          !result.timedOut, !result.outputTruncated,
-                          EngineBackgroundAgent.classifyPresence(
-                            .init(status: result.status, output: String(decoding: result.output, as: UTF8.self)),
-                            domain: domain, label: installation.label, uid: getuid()) == .absent else { return false }
-                }
-                var info = stat()
-                return lstat(installation.socket.path, &info) != 0 && errno == ENOENT
-            },
+            observe: { probe.observe() },
+            isAbsent: { positivelyAbsent(installation: installation, run: runner) },
             prepare: {
                 struct Contract: Decodable { let protocol_version: UInt16 }
                 let contract = try runner(installation.executable, ["--contract"], 5)
@@ -98,6 +84,20 @@ enum PTYSupervisorInstaller {
             load: { _ = try? runner(URL(fileURLWithPath: "/bin/launchctl"), ["load", "-S", "Background", installation.plist.path], 5) },
             wait: { Thread.sleep(forTimeInterval: 0.2) }
         ))
+    }
+
+    static func positivelyAbsent(installation: PTYSupervisorInstallation,
+                                 run: (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result) -> Bool {
+        for domain in ["user", "gui"] {
+            guard let result = try? run(URL(fileURLWithPath: "/bin/launchctl"),
+                                       ["print", "\(domain)/\(getuid())/\(installation.label)"], 5),
+                  !result.timedOut, !result.outputTruncated,
+                  EngineBackgroundAgent.classifyPresence(
+                    .init(status: result.status, output: String(decoding: result.output, as: UTF8.self)),
+                    domain: domain, label: installation.label, uid: getuid()) == .absent else { return false }
+        }
+        var info = stat()
+        return lstat(installation.socket.path, &info) != 0 && errno == ENOENT
     }
 
     private enum PreparationFailure: Error { case invalidHelper, unavailable }

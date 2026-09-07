@@ -18,33 +18,7 @@ struct EngineInstallationProbe {
     }
 
     func observeSupervisor() -> EngineReplacementCoordinator.SupervisorObservation {
-        let first: PTYSupervisorStatus
-        switch readSupervisorStatus() {
-        case let .success(value): first = value
-        case .failure(.incompatible): return .incompatible
-        case .failure(.unknown): return .unknown
-        }
-        let result = command("user", supervisor.label)
-        guard result.status == 0,
-              supervisor.matchesLoadedJob(result.output, uid: uid, status: first),
-              case let .success(second) = readSupervisorStatus(),
-              first.brokerBootID == second.brokerBootID,
-              first.brokerPID == second.brokerPID else { return .unknown }
-        return .verified(second)
-    }
-
-    private enum ProbeFailure: Error { case unknown, incompatible }
-    private struct ErrorReply: Decodable { let error: String }
-
-    private func readSupervisorStatus() -> Result<PTYSupervisorStatus, ProbeFailure> {
-        guard let result = try? run(supervisor.executable, ["--status", "--socket", supervisor.socket.path], 12),
-              !result.timedOut, !result.outputTruncated else { return .failure(.unknown) }
-        if result.status == 2,
-           let reply = try? JSONDecoder().decode(ErrorReply.self, from: result.output),
-           reply.error == "protocol_incompatible" { return .failure(.incompatible) }
-        guard result.succeeded,
-              let status = try? JSONDecoder().decode(PTYSupervisorStatus.self, from: result.output) else { return .failure(.unknown) }
-        return .success(status)
+        PTYSupervisorProbe(supervisor: supervisor, uid: uid, run: run).observe()
     }
 
     private func observeEngine() -> EngineReplacementCoordinator.EngineObservation {
@@ -76,4 +50,46 @@ struct EngineInstallationProbe {
               !result.timedOut, !result.outputTruncated else { return .init(status: -1, output: "") }
         return .init(status: result.status, output: String(decoding: result.output, as: UTF8.self))
     }
+}
+
+/// Supervisor-only inspection has no engine program or HTTP dependencies.
+/// Another compatible linked image is deliberate: restarting a live PTY owner
+/// to match the package image would destroy the sessions being preserved.
+struct PTYSupervisorProbe {
+    let supervisor: PTYSupervisorInstallation
+    let uid: UInt32
+    let run: (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result
+
+    func observe() -> EngineReplacementCoordinator.SupervisorObservation {
+        let first: PTYSupervisorStatus
+        switch readSupervisorStatus() {
+        case let .success(value): first = value
+        case .failure(.incompatible): return .incompatible
+        case .failure(.unknown): return .unknown
+        }
+        let result: EngineCommandRunner.Result
+        do { result = try run(URL(fileURLWithPath: "/bin/launchctl"), ["print", "user/\(uid)/\(supervisor.label)"], 5) }
+        catch { return .unknown }
+        guard result.succeeded,
+              supervisor.matchesLoadedJob(String(decoding: result.output, as: UTF8.self), uid: uid, status: first),
+              case let .success(second) = readSupervisorStatus(),
+              first.brokerBootID == second.brokerBootID,
+              first.brokerPID == second.brokerPID else { return .unknown }
+        return .verified(second)
+    }
+
+    private enum ProbeFailure: Error { case unknown, incompatible }
+    private struct ErrorReply: Decodable { let error: String }
+
+    private func readSupervisorStatus() -> Result<PTYSupervisorStatus, ProbeFailure> {
+        guard let result = try? run(supervisor.executable, ["--status", "--socket", supervisor.socket.path], 12),
+              !result.timedOut, !result.outputTruncated else { return .failure(.unknown) }
+        if result.status == 2,
+           let reply = try? JSONDecoder().decode(ErrorReply.self, from: result.output),
+           reply.error == "protocol_incompatible" { return .failure(.incompatible) }
+        guard result.succeeded,
+              let status = try? JSONDecoder().decode(PTYSupervisorStatus.self, from: result.output) else { return .failure(.unknown) }
+        return .success(status)
+    }
+
 }

@@ -174,10 +174,25 @@ passo de assinatura controlado. O hash da saída identifica aquela saída exata,
 não promete assinatura reproduzível. O validador Python tem uma cópia vendorizada
 no consumidor; `check-engine-package-contract.py --theyos-repo <checkout>`
 exige igualdade byte a byte e exercita emissão, leitura e recusa de campo alterado.
+Esse gate é obrigatório dentro de `check-terminal-contract.py`; a ligação ao
+checker governado de release e seus pins ainda pertence à entrega coordenada.
+No app, `EngineMachOIdentity` lê o Mach-O diretamente em Swift: não usa
+`dwarfdump`, cujo shim depende de Xcode/CLT na máquina da pessoa. Os leitores
+Swift e Python também foram comparados contra o mesmo executável real.
+
+O recibo identifica os bytes do engine, não os demais helpers. A integridade
+destes depende do tarball pinado e da assinatura do app; `--contract` prova
+compatibilidade, não integridade. Um supervisor vivo de outra imagem compatível
+é deliberadamente preservado: reiniciá-lo para igualar a imagem do pacote
+mataria as sessões que esta arquitetura existe para proteger.
 
 Estado desta fatia: gate do recibo e build de compilação do Mac passaram;
 o instalador independente do supervisor tem testes de operações injetadas.
-A integração desse instalador com o coordenador e a UI ainda falta. O pacote
+`EngineLifecycleService` conecta preparação, supervisor e coordenador, mas os
+entrypoints do instalador/UI ainda não o chamam. Ele recusa engine legado sem
+identidade verificável; a primeira migração com consentimento continua separada
+e pendente. A consulta HTTP é limitada ao loopback do perfil e recusa redirects.
+O pacote
 publicado 0.1.30 não contém supervisor nem recibo e é recusado deliberadamente.
 Não integrar o requisito ao main sem o pacote correspondente e o pin juntos.
 Os workflows ausentes e os pins de integridade Phase0 desatualizados no produtor

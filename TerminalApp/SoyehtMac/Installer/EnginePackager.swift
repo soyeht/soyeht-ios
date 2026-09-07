@@ -88,13 +88,8 @@ enum EnginePackager {
               digest.map({ String(format: "%02x", $0) }).joined() == receipt.executable_sha256 else {
             throw EnginePackagerError.incompatiblePackage
         }
-        let image = try EngineCommandRunner.runBlocking(executable: URL(fileURLWithPath: "/usr/bin/dwarfdump"),
-                                                        arguments: ["--uuid", executable.path])
-        let imageLines = String(decoding: image.output, as: UTF8.self).lowercased()
-            .replacingOccurrences(of: "-", with: "").split(separator: "\n")
-        guard image.succeeded, let uuid = receipt.artifact.imageUUID,
-              imageLines.count == 1,
-              imageLines[0].hasPrefix("uuid: \(uuid) (arm64) ") else {
+        guard let diskUUID = try EngineMachOIdentity.imageUUID(at: executable),
+              diskUUID == receipt.artifact.imageUUID else {
             throw EnginePackagerError.incompatiblePackage
         }
         let helper = try EngineCommandRunner.runBlocking(
@@ -103,7 +98,6 @@ enum EnginePackager {
         let identity = receipt.artifact
         guard helper.succeeded,
               let contract = try? JSONDecoder().decode(Contract.self, from: helper.output),
-              identity.compareImage(to: identity) == .sameImage,
               identity.ptySupervisorProtocol == contract.protocol_version else {
             throw EnginePackagerError.incompatiblePackage
         }
