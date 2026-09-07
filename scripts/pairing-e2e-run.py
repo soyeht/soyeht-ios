@@ -94,28 +94,52 @@ def main() -> int:
     house_before = probe.house_snapshot(args.house_dir)
     offset = probe.engine_offset(args.engine_log)
     capture = probe.start_mac_capture(mac_log, args.mac_process)
+    # `log stream` is not "ready" the instant Popen returns ([jaime]); give it a
+    # beat and refuse to drive if it already died, so an empty Mac tape is not
+    # mistaken for a quiet Mac.
+    time.sleep(1.5)
+    code = capture.poll()
+    if isinstance(code, int):     # a real early exit; a live Popen polls None
+        sys.exit(f"refused: the Mac capture exited immediately (rc {code}); "
+                 "not driving into a blind window")
     start = datetime.datetime.now()
     print(f"[{start:%H:%M:%S}] armed; driving {args.scenario} (cap {args.cap_secs:.0f}s)")
 
-    driver = subprocess.run(
-        ["uv", "run", "python", os.path.join(HERE, "pairing-e2e-drive.py"),
-         "--scenario", args.scenario, "--find-budget", str(args.find_budget)],
-        env={**os.environ, "SOYEHT_E2E_IPHONE_UDID": args.udid},
-        capture_output=True, text=True, timeout=args.cap_secs + 120, check=False)
-    end = datetime.datetime.now()
-    # A moment for the last os_log lines to flush before the window closes.
-    time.sleep(3)
+    # Every exit path below must stop the capture and write run.json — a leaked
+    # `log stream` and a missing record are how a timed-out arm read as nothing.
+    driver = None
+    timed_out = False
+    try:
+        driver = subprocess.run(
+            ["uv", "run", "python", os.path.join(HERE, "pairing-e2e-drive.py"),
+             "--scenario", args.scenario, "--find-budget", str(args.find_budget)],
+            env={**os.environ, "SOYEHT_E2E_IPHONE_UDID": args.udid},
+            capture_output=True, text=True, timeout=args.cap_secs, check=False)
+    except subprocess.TimeoutExpired as expired:
+        timed_out = True
+        driver = expired          # carries .stdout/.stderr captured so far
+    finally:
+        end = datetime.datetime.now()
+        time.sleep(3)             # let the last os_log lines flush
+        capture.terminate()
+        try:
+            capture.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            capture.kill()
+
+    stdout = driver.stdout or ""
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode(errors="replace")
+    stderr = driver.stderr or ""
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode(errors="replace")
+    rc = None if timed_out else driver.returncode
+    drove = "drove to the end: True" in stdout
     end_padded = end + datetime.timedelta(seconds=3)
-    print(f"[{end:%H:%M:%S}] driver done (exit {driver.returncode}); "
+    print(f"[{end:%H:%M:%S}] driver {'TIMED OUT' if timed_out else f'done (exit {rc})'}; "
           f"window {start:%H:%M:%S}-{end:%H:%M:%S}")
     with open(os.path.join(args.out_dir, "drive.log"), "w") as handle:
-        handle.write(driver.stdout + "\n---stderr---\n" + driver.stderr)
-
-    capture.terminate()
-    try:
-        capture.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        capture.kill()
+        handle.write(stdout + "\n---stderr---\n" + stderr)
 
     engine_lines = probe.engine_tail(args.engine_log, offset)
     with open(mac_log, errors="replace") as handle:
@@ -128,18 +152,31 @@ def main() -> int:
     with open(os.path.join(args.out_dir, "transcript.json"), "w") as handle:
         json.dump(probe.asdict(transcript), handle, indent=2)
 
-    captured = (end - start).total_seconds()
+    # An incomplete gesture is NOT a run to judge. The driver timing out or
+    # ending before the confirmed-connection readback means the invariants
+    # would grade a partial capture — HOUSE-UNCHANGED "pass" on a run that
+    # never happened reads like success. Refuse it BEFORE the validated judge,
+    # keep the tapes for diagnosis, and exit distinctly ([jaime]).
+    incomplete = timed_out or rc != 0 or not drove
     findings = probe.judge(transcript, args.phone_has_tailnet, devices_before,
-                           captured_secs=captured,
-                           expected_device=args.device_id,
-                           expected_mac=args.mac_id)
+                           captured_secs=(end - start).total_seconds(),
+                           expected_device=args.device_id, expected_mac=args.mac_id)
     with open(os.path.join(args.out_dir, "run.json"), "w") as handle:
         json.dump({"label": args.label, "scenario": args.scenario,
                    "start": start.isoformat(), "end": end.isoformat(),
-                   "driver_exit": driver.returncode,
-                   "drove_to_the_end": "drove to the end: True" in driver.stdout,
+                   "driver_exit": rc, "driver_timed_out": timed_out,
+                   "drove_to_the_end": drove, "gesture_incomplete": incomplete,
                    "findings": [(f.name, f.verdict, f.detail) for f in findings]},
                   handle, indent=2)
+
+    if incomplete:
+        why = ("driver timed out" if timed_out else
+               f"driver exit {rc}" if rc != 0 else "the gesture never reached a confirmed connection")
+        print(f"\nINCOMPLETE GESTURE ({why}). This is NOT RUN, not a verdict: the "
+              "invariants below graded a partial capture and do not speak for a "
+              "run that did not finish.")
+        probe.report(findings, args.label or args.scenario, args.out_dir, transcript)
+        return 3
     return probe.report(findings, args.label or args.scenario, args.out_dir, transcript)
 
 

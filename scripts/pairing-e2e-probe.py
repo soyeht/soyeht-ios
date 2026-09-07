@@ -208,6 +208,17 @@ def inv_tailnet_kept(t: Transcript, phone_has_tailnet: bool) -> Finding:
         return Finding("TAILNET-KEPT", "n/a", "phone has no tailnet in this scenario")
     chosen = first_host(t.phone_grep("pair.endpoint"), "host")
     if chosen is None:
+        # This invariant reads the HTTP pairing CEREMONY's chosen address
+        # (`pair.endpoint`). The Mac-local connect path does not run that
+        # ceremony — it persists its address through `upsertMacPairing` and
+        # chooses the presence route in `presence_connecting`, judged
+        # elsewhere ([jaime]). So on a Mac-local connect there is nothing here
+        # to read: n/a, not a fail — and this says nothing about whether an
+        # address persisted or a route was validated.
+        if t.phone_grep("existing_house.mac_connection_confirmed"):
+            return Finding("TAILNET-KEPT", "n/a",
+                           "Mac-local connect ran no HTTP pairing ceremony; its "
+                           "endpoint choice is in presence_connecting, not here")
         return Finding("TAILNET-KEPT", "fail", "the phone recorded no chosen address")
     kind = classify(chosen)
     if kind == "tailnet":
