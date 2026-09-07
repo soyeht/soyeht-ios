@@ -327,4 +327,70 @@ final class EngineReplacementCoordinatorTests: XCTestCase {
             XCTAssertFalse(harness.events.contains("loadEngine"))
         }
     }
+    func testColdStartupCanBecomeReadyAfterMoreThanSixPollsInOneRound() throws {
+        try fixture { journal, proposed, harness in
+            let absent = try observation(absent: true)
+            harness.observations = [absent]
+                + Array(repeating: .init(engine: .unknown, supervisor: absent.supervisor), count: 10)
+                + [try observation()]
+            var elapsed: TimeInterval = 0
+            var operations = harness.operations
+            operations.waitBeforeObservation = { elapsed += 0.2; harness.events.append("wait") }
+            let result = Coordinator(journal: journal, operations: operations,
+                                     monotonicNow: { elapsed }).run(proposal: proposed)
+            XCTAssertEqual(result, .readyWithContinuity)
+            XCTAssertEqual(harness.events.filter { $0 == "loadEngine" }.count, 1)
+            XCTAssertFalse(harness.events.contains("removeEngine"))
+            XCTAssertGreaterThan(harness.events.filter { $0 == "observe" }.count, 6)
+            XCTAssertNil(try journal.read())
+        }
+    }
+
+    func testMonotonicDeadlinePreservesPendingAndStopsFurtherObservation() throws {
+        try fixture { journal, proposed, harness in
+            let absent = try observation(absent: true)
+            harness.observations = [absent, .init(engine: .unknown, supervisor: absent.supervisor)]
+            var elapsed: TimeInterval = 0
+            var operations = harness.operations
+            operations.waitBeforeObservation = { elapsed += 1; harness.events.append("wait") }
+            let result = Coordinator(journal: journal, operations: operations, roundTimeout: 3,
+                                     monotonicNow: { elapsed }).run(proposal: proposed)
+            XCTAssertEqual(result, .unconfirmed(.observationUnavailable))
+            XCTAssertEqual(harness.events.filter { $0 == "observe" }.count, 3)
+            XCTAssertEqual(harness.events.filter { $0 == "loadEngine" }.count, 1)
+            XCTAssertFalse(harness.events.contains("removeEngine"))
+            XCTAssertEqual(try journal.read()?.phase, .awaitingReadback)
+            XCTAssertFalse(harness.barrierHeld)
+        }
+    }
+
+    func testObservationFinishingAfterDeadlineCannotTriggerRemoval() throws {
+        try fixture { journal, proposed, harness in
+            var elapsed: TimeInterval = 0
+            var operations = harness.operations
+            operations.observe = { elapsed = 31; return try! self.observation(old: true) }
+            XCTAssertEqual(Coordinator(journal: journal, operations: operations,
+                                       monotonicNow: { elapsed }).run(proposal: proposed),
+                           .unconfirmed(.confirmationPending))
+            XCTAssertFalse(harness.events.contains("removeEngine"))
+            XCTAssertFalse(harness.events.contains("loadEngine"))
+            XCTAssertEqual(try journal.read()?.phase, .prepared)
+        }
+    }
+
+    func testRemovalValidationFinishingAfterDeadlineCannotStopTheEngine() throws {
+        try fixture { journal, proposed, harness in
+            harness.observations = [try observation(old: true)]
+            var elapsed: TimeInterval = 0
+            var operations = harness.operations
+            operations.validateRemoval = { _, _ in elapsed = 31 }
+            XCTAssertEqual(Coordinator(journal: journal, operations: operations,
+                                       monotonicNow: { elapsed }).run(proposal: proposed),
+                           .unconfirmed(.confirmationPending))
+            XCTAssertFalse(harness.events.contains("removeEngine"))
+            XCTAssertFalse(harness.events.contains("loadEngine"))
+            XCTAssertEqual(try journal.read()?.phase, .prepared)
+        }
+    }
+
 }

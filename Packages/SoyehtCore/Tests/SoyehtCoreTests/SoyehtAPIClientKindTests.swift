@@ -99,6 +99,31 @@ private func percentEncodedPath(_ request: URLRequest) -> String? {
 // parallel execution would race tests against each other on those slots.
 @Suite("SoyehtAPIClient kind-aware routing", .serialized)
 struct SoyehtAPIClientKindTests {
+    @Test("Listing and creation keep the selected server after the active server changes")
+    func workspaceContextSurvivesActiveServerChange() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        let selected = pair(store, kind: .adminHost, host: "localhost:9000", token: "selected-token")
+        let context = try #require(store.context(for: selected.id))
+        _ = pair(store, kind: .engine, host: "remote.example.com", token: "other-token")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        _ = try await client.listWorkspaces(container: "fixture", context: context)
+        var request = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(request.url?.host == "localhost")
+        #expect(request.value(forHTTPHeaderField: "Cookie") == "soyeht_session=selected-token")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+
+        KindRoutingTestProtocol.responseBody = Data(#"{"workspace":{"id":"workspace","session_id":"shell","container":"fixture","status":"running"}}"#.utf8)
+        _ = try await client.createWorkspace(container: "fixture", session: "shell", context: context)
+        request = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.host == "localhost")
+        #expect(request.value(forHTTPHeaderField: "Cookie") == "soyeht_session=selected-token")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        let body = try #require(request.httpBody)
+        #expect(try JSONDecoder().decode([String: String].self, from: body) == ["session": "shell"])
+    }
+
 
     @Test
     func engineKindHitsMobileInstancesWithBearer() async throws {

@@ -116,11 +116,13 @@ def process_identity(pid: int) -> dict | None:
         capture_output=True, text=True, check=False,
     )
     line = output.stdout.strip()
-    if not line:
+    if output.returncode == 1 and not line and not output.stderr.strip():
         return None
+    if output.returncode != 0 or not line:
+        raise Unqueryable("ps could not establish process identity")
     parts = line.split(None, 5)
     if len(parts) < 6:
-        return None
+        raise Unqueryable("ps returned an incomplete process identity")
     pid_text, ppid_text, pgid_text, sess_text, tty_text, rest = parts
     # lstart is five fields ("Fri Sep  5 14:23:45 2026"); the command follows.
     rest_parts = rest.split(None, 5)
@@ -226,18 +228,60 @@ def label_loaded(label: str) -> bool:
         capture_output=True, text=True, check=False)
     if result.returncode == 0:
         return True
-    combined = (result.stdout + result.stderr).lower()
-    if "could not find" in combined or "no such process" in combined or result.returncode == 113:
+    lines = (result.stdout + result.stderr).splitlines()
+    expected = f'Could not find service "{label}" in domain for uid: {os.getuid()}'
+    if result.returncode == 113 and expected in [line.strip() for line in lines]:
         return False
     raise Unqueryable(f"launchctl print exited {result.returncode}: "
                       f"{(result.stderr or result.stdout).strip()[:120]!r}")
 
 
+def executable_path(pid: int) -> str | None:
+    """Read the executing image path from the kernel, not an argv substring."""
+    import ctypes
+    import errno
+    library = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+    query = library.proc_pidpath
+    query.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+    query.restype = ctypes.c_int
+    buffer = ctypes.create_string_buffer(4096)
+    if query(pid, buffer, len(buffer)) <= 0:
+        code = ctypes.get_errno()
+        if code == errno.ESRCH:
+            return None
+        raise Unqueryable(f"kernel executable path unavailable (errno {code})")
+    return os.fsdecode(buffer.value)
+
+
 def engine_identity(path_fragment: str) -> dict | None:
+    """A unique launchd child executing this image, without transient fallback.
+
+    ps command text narrows candidates only. The kernel path must match the
+    binary itself: wrappers mentioning it and similarly named siblings are not
+    engines. A transient --contract process cannot stand in for the daemon.
+    Ambiguity or inability to inspect a candidate does not prove absence.
+    """
+    candidates = []
     for row in ps_rows("pid=,command="):
-        if len(row) >= 2 and path_fragment in row[1]:
-            return process_identity(int(row[0]))
-    return None
+        if len(row) < 2 or path_fragment not in row[1]:
+            continue
+        pid = int(row[0])
+        before = process_identity(pid)
+        if before is None:
+            continue
+        path = executable_path(pid)
+        if path is None or not path.endswith("/" + path_fragment):
+            continue
+        after = process_identity(pid)
+        if after is None or before != after:
+            raise Unqueryable("candidate changed during executable identity observation")
+        candidates.append(after)
+    if not candidates:
+        return None
+    daemons = [identity for identity in candidates if identity.get("ppid") == 1]
+    if len(daemons) != 1:
+        raise Unqueryable("no unique launchd-owned daemon among matching executable paths")
+    return daemons[0]
 
 
 # ─────────────────────────── talking to the engine ───────────────────────
@@ -711,13 +755,26 @@ def compare(before: SessionSnapshot, after: SessionSnapshot | None,
         f"{before.foreground_pgid} -> {after.foreground_pgid}",
     )
 
+    # The release-gated writer is a backgrounded subshell that EXITS as soon as
+    # it has emitted line 064 — which `absence_output` above exists to prove it
+    # did. Counting it as a lost child made the instrument contradict itself:
+    # one check demanded the writer finish, the next condemned the session for
+    # the writer having finished. Measured on the first real bootout, where all
+    # three sessions were intact and two were reported DIED for this alone.
+    #
+    # Every child this probe creates on purpose is a tracked role, so the
+    # untracked ones are transient by construction and are excluded here. They
+    # are identified from `ps`, not from the shell naming its own children.
+    tracked_pids = {identity["pid"] for identity in before.tracked.values()}
     before_children = {
         (child["command"].split()[0] if child["command"] else "?"):
             (child["pid"], child["start"]) for child in before.children
+        if child["pid"] in tracked_pids
     }
     after_children = {
         (child["command"].split()[0] if child["command"] else "?"):
             (child["pid"], child["start"]) for child in after.children
+        if child["pid"] in {identity["pid"] for identity in after.tracked.values()}
     }
     missing = [name for name in before_children if name not in after_children]
     changed = [name for name, identity in before_children.items()
@@ -726,7 +783,9 @@ def compare(before: SessionSnapshot, after: SessionSnapshot | None,
         # Zero children passing as "preserved" is an empty guard: it would stay
         # green forever because there was never anything to preserve. With no
         # fixture the result is NOT RUN, and that has to show in the report.
-        checks["children_preserved"] = (None, "NOT RUN — no child in the fixture")
+        checks["children_preserved"] = (
+            None, "NOT RUN — no long-lived child in the fixture "
+                  "(the numbered writer is expected to exit; see absence_output)")
     else:
         checks["children_preserved"] = (
             not missing and not changed,
@@ -1353,6 +1412,35 @@ def self_test() -> int:
                    result["released"] and not result["verified_absent"], result["detail"])
         finally:
             globals()["engine_absent"] = original
+
+    originals = {name: globals()[name] for name in ("ps_rows", "process_identity", "executable_path")}
+    try:
+        image = "/fixture/Library/Application Support/" + DEV_SUPERVISOR_PATH_FRAGMENT
+        rows = [["1", image + " --contract"], ["2", "python mentions " + image], ["3", image + " --socket fixture"]]
+        identities = {1: {"pid": 1, "ppid": 99}, 2: {"pid": 2, "ppid": 1}, 3: {"pid": 3, "ppid": 1}}
+        paths = {1: image, 2: "/usr/bin/python3", 3: image}
+        globals()["ps_rows"] = lambda fields: rows
+        globals()["process_identity"] = lambda pid: identities.get(pid)
+        globals()["executable_path"] = lambda pid: paths.get(pid)
+        expect("kernel image beats argv mention and transient", engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT) == identities[3], "only the actual launchd daemon qualifies")
+        rows = rows[:1]
+        try:
+            engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT)
+            expect("transient alone refuses", False, "transient was adopted")
+        except Unqueryable:
+            expect("transient alone refuses", True, "no fallback to the first candidate")
+        rows = [["2", image], ["3", image]]
+        paths[2] = image
+        try:
+            engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT)
+            expect("two daemon candidates refuse", False, "ambiguous owner was selected")
+        except Unqueryable:
+            expect("two daemon candidates refuse", True, "ambiguity is not absence")
+        rows = [["3", image + "-old"]]
+        paths[3] = image + "-old"
+        expect("similarly named image is different", engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT) is None, "kernel path suffix must match exactly")
+    finally:
+        globals().update(originals)
 
     if failures:
         print(f"\n{failures} calibration case(s) failed. A 'proven absence' from "

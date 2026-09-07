@@ -55,8 +55,13 @@ enum EnginePaneAttacher {
         terminalView: MacOSWebSocketTerminalView,
         convStore: ConversationStore
     ) async -> AttachOutcome {
+        let installationGeneration = EngineInstallationReadiness.generation
         let current = convStore.conversation(conversation.id) ?? conversation
-        func unresolved(_ retryable: Bool, message: String = SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription) -> AttachOutcome {
+        func unresolved(_ requestedRetry: Bool, message: String = SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription) -> AttachOutcome {
+            // Readiness may arrive while this request is still in flight.
+            // A refusal from the previous installation must not strand the
+            // pane after the notification has already been delivered.
+            let retryable = requestedRetry || installationGeneration != EngineInstallationReadiness.generation
             if current.commander.requiresEngineSessionPreservation || convStore.conversation(conversation.id)?.commander.requiresEngineSessionPreservation == true {
                 return .preserved(retryable: retryable, message: message)
             }

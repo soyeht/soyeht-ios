@@ -110,7 +110,13 @@ ser explícita e verificar os processos atuais antes de abandonar a intenção.
    antigos. Instâncias antigas recebem término explícito; não são recriadas.
    Esse caso não pode bloquear novos terminais indefinidamente.
 
-Cada rodada de recuperação tem prazo e orçamento de tentativas; esgotar o
+Cada rodada de recuperação tem prazo monotônico de 30 segundos e teto de
+150 observações, com pausa entre consultas. Cada chamada de observação/comando
+também tem seu próprio timeout: uma chamada em voo pode concluir depois do
+prazo da rodada, mas esse retorno não autoriza uma nova mutação. A primeira
+subida medida no Dev levou mais que os seis polls rápidos do orçamento antigo;
+um teste cobre prontidão tardia na mesma rodada e outro cobre o prazo esgotado.
+Esgotar o
 orçamento oferece retomar a mesma operação, não apagá-la ou matar outro
 processo. **O custo possível é ficar sem engine por tempo indeterminado** entre
 a remoção e a confirmação de uma carga bem-sucedida. A ação de retomar precisa
@@ -216,8 +222,9 @@ Os testes de domínio, a compilação do app e o gate cruzado passaram nesta
 integração. A sonda Python agora mede shell, job longo e TUI separados, com
 escritores liberados apenas durante ausência observada por processo e porta,
 e espera todas as sentinelas DONE antes de recarregar. Seus controles isolados
-não substituem as corridas do Dev instalado. Essas corridas continuam pendentes
-até a migração pelo próprio app e o ensaio do bundle assinado na faixa Dev.
+não substituem as corridas do Dev instalado. A migração e a matriz de falhas
+foram medidas no bundle assinado, conforme o registro abaixo; a substituição
+A→B continua sendo um aceite separado.
 
 O pacote publicado 0.1.30 não contém supervisor nem recibo e é recusado
 deliberadamente. Não integrar o requisito ao main sem o pacote correspondente e
@@ -248,3 +255,34 @@ conteúdo associado das observações. Erro de journal conserva seu diagnóstico
 sem ser confundido com pacote incompatível. Uma falha de emissão de ticket
 mantém sua causa e decisão de retry até a pane; a mensagem de indisponibilidade
 não afirma duração. Uma mensagem de tela sozinha não prova envio de CREATE.
+
+A primeira migração do Dev pelo app foi observada no bundle `710e4df0`, com
+consentimento da fixture, readback do engine/supervisor e limpeza do journal
+após Resume. A bancada mediu 3/3 sessões preservadas no bootout e no SIGKILL do
+engine; o controle negativo com a mesma carga e morte do supervisor teve 0/3
+sessões preservadas. A ausência comprovada e a produção numerada pertencem somente ao
+bootout (8 segundos), não à corrida SIGKILL em que o launchd voltou cedo.
+A pane real também passou pelo resize (tamanho consultado no PTY), Ctrl-Z/fg,
+Ctrl-C e relaunch com UTF-8 partido. PID, início, pai supervisor e instância
+foram comparados antes/depois; o caractere terminou de chegar com o app fechado
+e foi remontado pelo replay. A substituição entre duas imagens supervisionadas
+continua pendente, com uma pane viva preservada para esse ensaio.
+
+A primeira rodada de migração terminou cedo demais durante a subida do engine.
+O coordenador agora usa orçamento monotônico de 30 segundos, além do teto de
+observações. Chamadas individuais continuam limitadas; se terminarem depois do
+prazo, não autorizam um novo load/bootout. Testes dirigidos cobrem subida depois
+da sexta observação, prazo esgotado e observação/validação que cruzam o prazo.
+
+A prontidão confirmada acorda panes com recusa anterior, sem recriar instância
+conhecida. Uma recusa que chega depois desse aviso percebe a geração nova e
+pode reconsultar. O diálogo de nova conversa usa o resolvedor canônico existente
+e carrega o contexto escolhido até criação e WebSocket; trocar o servidor ativo
+não redireciona a operação. Listagem que falhou pode ser refeita por Retry ou
+por prontidão confirmada. O POST de criação não é repetido automaticamente.
+
+A mensagem de incompatibilidade observada depois do controle negativo era
+anterior à migração, conforme a fita: não prova uma falha causada pelo restart
+do supervisor. O GET do diálogo usava o host público com porta administrativa;
+seguir o contexto local pinado corrige esse caminho sem redefinir servidores
+remotos como locais.

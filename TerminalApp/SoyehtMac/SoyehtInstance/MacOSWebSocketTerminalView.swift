@@ -458,6 +458,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// remote/engine WebSocket session. Mirrors `isLocalSessionActive` for
     /// the WS transport, so restore-on-relaunch logic can skip re-issuing an
     /// engine attach for a pane that's already wired.
+    var isRemoteSessionConnected: Bool {
+        if case .open = state { return true }
+        return false
+    }
+
     var isRemoteSessionConfigured: Bool {
         configuredURL != nil
     }

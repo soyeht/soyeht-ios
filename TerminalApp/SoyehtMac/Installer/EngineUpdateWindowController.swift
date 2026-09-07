@@ -11,6 +11,7 @@ final class EngineUpdateWindowController: NSWindowController {
     private var working = false
 
     static func present(_ outcome: EngineReplacementCoordinator.Outcome, onReady: (() -> Void)? = nil) {
+        EngineInstallationReadiness.publish(outcome)
         if outcome == .readyWithContinuity || outcome == .readyNoReplacement {
             shared?.close()
             shared = nil
@@ -72,6 +73,7 @@ final class EngineUpdateWindowController: NSWindowController {
             }.value
             guard let self else { return }
             self.working = false
+            EngineInstallationReadiness.publish(result)
             if result == .readyWithContinuity || result == .readyNoReplacement {
                 self.advance(result)
             } else {

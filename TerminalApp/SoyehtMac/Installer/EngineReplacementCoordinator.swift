@@ -83,11 +83,18 @@ struct EngineReplacementCoordinator {
 
     let journal: Journal
     let operations: Operations
-    var observationLimit = 6
+    // A cold engine can take longer than a handful of quick connection
+    // refusals. Keep an independent monotonic deadline and an attempt cap.
+    // Each adapter call is itself bounded; an in-flight call may finish after
+    // the round deadline, but cannot then authorize another mutation.
+    var observationLimit = 150
+    var roundTimeout: TimeInterval = 30
+    var monotonicNow: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
     /// A nil proposal means Resume only: absence never manufactures a fresh
     /// operation. Read/write failures cannot authorize a launchctl mutation.
     func run(proposal: Journal.Record? = nil) -> Outcome {
+        let deadline = monotonicNow() + max(0, roundTimeout)
         var outcome = Outcome.unconfirmed(.confirmationPending)
         let permit: CreationPermit
         do { permit = try operations.acquireCreationPermit() }
@@ -111,7 +118,9 @@ struct EngineReplacementCoordinator {
             var requestedLoad = false
             for index in 0..<max(1, observationLimit) {
                 if index > 0 { operations.waitBeforeObservation() }
+                guard monotonicNow() < deadline else { return outcome }
                 let observation = operations.observe()
+                guard monotonicNow() < deadline else { return outcome }
                 let supervisor: PTYSupervisorStatus
                 switch observation.supervisor {
                 case let .verified(status): supervisor = status
@@ -139,6 +148,7 @@ struct EngineReplacementCoordinator {
                     record.phase = .awaitingReadback
                     try journal.save(record)
                     requestedLoad = true
+                    guard monotonicNow() < deadline else { return outcome }
                     operations.loadPreparedEngine()
                 case .legacy(let legacy):
                     guard record.phase == .prepared || record.phase == .removalUncertain else { continue }
@@ -152,8 +162,10 @@ struct EngineReplacementCoordinator {
                         outcome = .unconfirmed(.removalPreconditionUnavailable)
                         return outcome
                     }
+                    guard monotonicNow() < deadline else { return outcome }
                     record.phase = .removalUncertain
                     try journal.save(record)
+                    guard monotonicNow() < deadline else { return outcome }
                     requestedRemoval = true
                     operations.removeEngine(observation.engine)
                 case let .present(runtime, targetConfigurationMatches):
@@ -201,8 +213,10 @@ struct EngineReplacementCoordinator {
                         outcome = .unconfirmed(.removalPreconditionUnavailable)
                         return outcome
                     }
+                    guard monotonicNow() < deadline else { return outcome }
                     record.phase = .removalUncertain
                     try journal.save(record)
+                    guard monotonicNow() < deadline else { return outcome }
                     requestedRemoval = true
                     operations.removeEngine(observation.engine)
                 }
@@ -211,5 +225,25 @@ struct EngineReplacementCoordinator {
             outcome = .unconfirmed(.journalUnavailable)
         }
         return outcome
+    }
+}
+
+/// A confirmed installation changes the premise of an earlier refusal. It
+/// authorizes re-observation, never recreation of a known terminal instance.
+@MainActor
+enum EngineInstallationReadiness {
+    static let didBecomeReady = Notification.Name("soyeht.engine.installationReady")
+    // Counts readiness observations, not engine process incarnations.
+    private(set) static var generation: UInt64 = 0
+
+    static func publish(_ outcome: EngineReplacementCoordinator.Outcome,
+                        center: NotificationCenter = .default) {
+        switch outcome {
+        case .readyWithContinuity, .readyNoReplacement, .readyAfterSupervisorRestart, .readyAfterLegacyMigration:
+            generation &+= 1
+            center.post(name: didBecomeReady, object: nil)
+        case .unconfirmed, .legacyMigrationRequired:
+            break
+        }
     }
 }

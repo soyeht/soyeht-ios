@@ -479,7 +479,20 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     func preserveEngineSession(message: String, retryable: Bool) {
         showDisconnectBanner(message)
+        Self.logger.notice("engine pane retained after refusal retryable=\(retryable)")
+        pendingTransportReattachTask?.cancel()
+        pendingTransportReattachTask = nil
         if retryable { scheduleEngineReattachAfterTransportLoss(SoyehtAPIClient.LocalTerminalFailure.unavailable) }
+    }
+
+    @objc private func engineInstallationBecameReady() {
+        guard !disconnectBanner.isHidden, !terminalView.isRemoteSessionConnected,
+              let conv = AppEnvironment.conversationStore?.conversation(conversationID),
+              case .engineLocal = conv.commander else { return }
+        Self.logger.notice("engine installation ready; re-observing retained pane")
+        pendingTransportReattachTask?.cancel()
+        pendingTransportReattachTask = nil
+        restoreEnginePaneIfNeeded(for: conv, forceReattach: true)
     }
 
     private func hideDisconnectBanner() {
@@ -736,6 +749,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             )
             NotificationCenter.default.removeObserver(
                 self, name: ClawStoreNotifications.activeServerChanged, object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self, name: EngineInstallationReadiness.didBecomeReady, object: nil
             )
         }
     }
@@ -1385,6 +1401,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             selector: #selector(presenceMembershipChanged),
             name: PairingPresenceServer.membershipDidChangeNotification,
             object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(engineInstallationBecameReady),
+            name: EngineInstallationReadiness.didBecomeReady, object: nil
         )
         // Active-server changes flip the QR-handoff affordance: continue-QR
         // is engine-only, so any pane that survives an active-server swap

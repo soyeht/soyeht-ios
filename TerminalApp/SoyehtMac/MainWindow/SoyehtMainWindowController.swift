@@ -4601,7 +4601,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 for: stored.id,
                 container: container,
                 attachSessionId: req.attachSessionId,
-                convStore: convStore
+                convStore: convStore,
+                context: req.context
             )
         }
     }
@@ -4612,10 +4613,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         for conversationID: Conversation.ID,
         container: String,
         attachSessionId: String?,
-        convStore: ConversationStore
+        convStore: ConversationStore,
+        context selectedContext: ServerContext? = nil
     ) async {
-        guard let host = SessionStore.shared.apiHost,
-              let token = SessionStore.shared.sessionToken else {
+        guard let context = selectedContext ?? MacActiveServerContextResolver.activeContext() else {
             Self.logger.error("wireTerminal aborted: missing host/token in SessionStore")
             return
         }
@@ -4624,7 +4625,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             sessionId = existing
         } else {
             do {
-                let resp = try await SoyehtAPIClient.shared.createWorkspace(container: container)
+                let resp = try await SoyehtAPIClient.shared.createWorkspace(container: container, context: context)
                 sessionId = resp.workspace.sessionId
             } catch {
                 Self.logger.error("createWorkspace failed: \(error.localizedDescription, privacy: .public)")
@@ -4635,12 +4636,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // `Cookie: soyeht_session=…` header on the upgrade request
         // instead of leaking the session value in a `?token=…` query
         // param (which a downstream HTTPS proxy would log verbatim).
-        let activeKind = SessionStore.shared.activeServer?.kind ?? .engine
+        let activeKind = context.server.kind
         let attachment = SoyehtAPIClient.shared.buildWebSocketAttachment(
-            host: host,
+            host: context.host,
             container: container,
             sessionId: sessionId,
-            token: token,
+            token: context.token,
             kind: activeKind
         )
         // Refresh commander so PaneViewController hides its placeholder.
