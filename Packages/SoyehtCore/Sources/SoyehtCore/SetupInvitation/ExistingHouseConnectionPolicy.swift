@@ -48,15 +48,15 @@ public enum ExistingHouseConnectionPath: Equatable {
     /// then finish as `.connectedToExistingMac` without starting household
     /// pairing.
     case macLocal
-    /// A first-owner home (its link is not a device-pairing link): run the
-    /// first-owner ceremony, exactly as before. There is no owner to wait on.
-    case householdCeremony(ExistingHouseConnectionReason)
-    /// A home that already has an owner, and no Mac-local secret to connect
-    /// with after the caller's bounded wait for the claim. Refuse with an
-    /// actionable error and start nothing: running the household ceremony
-    /// here would wait on an owner who may never answer, which is the exact
-    /// deadlock this policy exists to remove.
-    case macInvitationUnavailable(ExistingHouseConnectionReason)
+    /// No Mac-local secret to connect with after the caller's bounded wait
+    /// for the claim, or a secret that is not for this home or this app.
+    /// Refuse with an actionable error and start nothing. There is
+    /// deliberately no third case: an existing home has an owner by
+    /// definition, and a "run the household ceremony instead" branch would
+    /// name — and so authorise — the exact fallback that waited on an owner
+    /// who may never answer. The first-owner ceremony belongs to the
+    /// first-house link, which never reaches this policy.
+    case unavailable(ExistingHouseConnectionReason)
 }
 
 public enum ExistingHouseConnectionReason: String, Equatable, Sendable {
@@ -82,9 +82,6 @@ public enum ExistingHouseConnectionPolicy {
     ///   - hasDeferredLocalPairing: a secret is held for this discovery.
     ///   - installationMatches: the claim's installation profile matched the
     ///     running app's when it was accepted.
-    ///   - homeHasOwner: the confirmed card's link is a device-pairing link,
-    ///     i.e. the home already has an owner person. A first-owner link is
-    ///     the one case where the ceremony cannot deadlock.
     ///
     /// The Bonjour card can be on screen before the claim delivers the secret.
     /// Callers wait a bounded time for the confirmed home's claim before
@@ -94,20 +91,16 @@ public enum ExistingHouseConnectionPolicy {
         confirmedHouseholdKey: String,
         deferredPairingHouseholdKey: String?,
         hasDeferredLocalPairing: Bool,
-        installationMatches: Bool,
-        homeHasOwner: Bool
+        installationMatches: Bool
     ) -> ExistingHouseConnectionPath {
-        let refusal: ExistingHouseConnectionReason?
-        if !hasDeferredLocalPairing { refusal = .noLocalPairing }
-        else if !installationMatches { refusal = .installationMismatch }
-        else if deferredPairingHouseholdKey != confirmedHouseholdKey { refusal = .householdMismatch }
-        else { refusal = nil }
-
-        guard let refusal else { return .macLocal }
-        // A mismatch is an explicit refusal in every home: a secret for another
-        // home or another app never becomes a reason to run any ceremony.
-        if refusal != .noLocalPairing { return .macInvitationUnavailable(refusal) }
-        return homeHasOwner ? .macInvitationUnavailable(.noLocalPairing)
-                            : .householdCeremony(.noLocalPairing)
+        guard hasDeferredLocalPairing else { return .unavailable(.noLocalPairing) }
+        // Installation outranks household: a Dev claim matching a production
+        // card by household key is still the wrong app, and that is what a
+        // reader must act on first.
+        guard installationMatches else { return .unavailable(.installationMismatch) }
+        guard deferredPairingHouseholdKey == confirmedHouseholdKey else {
+            return .unavailable(.householdMismatch)
+        }
+        return .macLocal
     }
 }

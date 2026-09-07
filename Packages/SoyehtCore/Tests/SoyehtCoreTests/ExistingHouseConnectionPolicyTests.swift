@@ -5,7 +5,7 @@ import XCTest
 /// existing-home path held the first hostage to the second, and the second
 /// depends on an owner who — on the production Mac measured 2026-09-07 — can
 /// no longer act. These pin the path chosen AFTER the person confirms the Mac,
-/// and the three reasons the household ceremony still runs instead.
+/// and the three reasons it refuses instead — never a ceremony.
 final class ExistingHouseConnectionPolicyTests: XCTestCase {
 
     private let home = "hh_pub_home"
@@ -19,56 +19,38 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: home,
                 hasDeferredLocalPairing: true,
-                installationMatches: true,
-                homeHasOwner: true
+                installationMatches: true
             ),
             .macLocal
         )
     }
 
-    // MARK: - Household ceremony, as before
+    // MARK: - Unavailable
 
-    func test_runsTheCeremonyWhenNoSecretWasEverHeld() {
+    func test_noSecretIsUnavailableNotACeremony() {
         XCTAssertEqual(
             ExistingHouseConnectionPolicy.chooseConnectionPath(
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: nil,
                 hasDeferredLocalPairing: false,
-                installationMatches: true,
-                homeHasOwner: true
+                installationMatches: true
             ),
-            .macInvitationUnavailable(.noLocalPairing)
+            .unavailable(.noLocalPairing)
         )
     }
 
-    func test_aFirstOwnerHomeWithNoSecretStillRunsItsCeremony() {
-        // The one home where the ceremony cannot deadlock: there is no owner
-        // to wait on, the phone becomes the owner.
-        XCTAssertEqual(
-            ExistingHouseConnectionPolicy.chooseConnectionPath(
-                confirmedHouseholdKey: home,
-                deferredPairingHouseholdKey: nil,
-                hasDeferredLocalPairing: false,
-                installationMatches: true,
-                homeHasOwner: false
-            ),
-            .householdCeremony(.noLocalPairing)
-        )
-    }
-
-    func test_aMismatchIsRefusedEvenInAFirstOwnerHome() {
+    func test_aMismatchIsAnExplicitRefusalNeverAFallback() {
         // A secret for another home or another app never becomes a reason to
         // run ANY ceremony. [jaime]: mismatch is an explicit refusal, not a
-        // fallback.
+        // fallback — and the enum has no ceremony case to fall back to.
         XCTAssertEqual(
             ExistingHouseConnectionPolicy.chooseConnectionPath(
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: other,
                 hasDeferredLocalPairing: true,
-                installationMatches: true,
-                homeHasOwner: false
+                installationMatches: true
             ),
-            .macInvitationUnavailable(.householdMismatch)
+            .unavailable(.householdMismatch)
         )
     }
 
@@ -80,10 +62,9 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: other,
                 hasDeferredLocalPairing: true,
-                installationMatches: true,
-                homeHasOwner: true
+                installationMatches: true
             ),
-            .macInvitationUnavailable(.householdMismatch)
+            .unavailable(.householdMismatch)
         )
     }
 
@@ -93,10 +74,9 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: home,
                 hasDeferredLocalPairing: true,
-                installationMatches: false,
-                homeHasOwner: true
+                installationMatches: false
             ),
-            .macInvitationUnavailable(.installationMismatch)
+            .unavailable(.installationMismatch)
         )
     }
 
@@ -109,10 +89,9 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: nil,
                 hasDeferredLocalPairing: true,
-                installationMatches: true,
-                homeHasOwner: true
+                installationMatches: true
             ),
-            .macInvitationUnavailable(.householdMismatch)
+            .unavailable(.householdMismatch)
         )
     }
 
@@ -136,27 +115,33 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: other,
                 hasDeferredLocalPairing: true,
-                installationMatches: false,
-                homeHasOwner: true
+                installationMatches: false
             ),
-            .macInvitationUnavailable(.installationMismatch)
+            .unavailable(.installationMismatch)
         )
     }
 
-    func test_noSecretInAnOwnedHomeNeverStartsTheCeremony() {
+    func test_thereIsNoCeremonyCaseToFallBackTo() {
         // The race found in integration: the Bonjour card can be on screen
         // before the claim delivers the secret. If "no secret" meant "run the
         // ceremony", the phone would wait on an owner who may never answer —
-        // the deadlock measured on the owner's production Mac.
+        // the deadlock measured on the owner's production Mac. So the enum
+        // carries two cases and this pins the count: naming a ceremony case
+        // would authorise the fallback ([jaime], integration).
+        switch ExistingHouseConnectionPolicy.chooseConnectionPath(
+            confirmedHouseholdKey: home, deferredPairingHouseholdKey: nil,
+            hasDeferredLocalPairing: false, installationMatches: true
+        ) {
+        case .macLocal, .unavailable: break   // exhaustive: no third case compiles
+        }
         XCTAssertEqual(
             ExistingHouseConnectionPolicy.chooseConnectionPath(
                 confirmedHouseholdKey: home,
                 deferredPairingHouseholdKey: nil,
                 hasDeferredLocalPairing: false,
-                installationMatches: true,
-                homeHasOwner: true
+                installationMatches: true
             ),
-            .macInvitationUnavailable(.noLocalPairing)
+            .unavailable(.noLocalPairing)
         )
     }
 }
