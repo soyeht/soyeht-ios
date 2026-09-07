@@ -21,6 +21,7 @@ public struct PairingAttemptFailure: Error, Equatable, Sendable, LocalizedError 
         case certificate
         case approvalUnavailable
         case approvalExpired
+        case approvalRequestUnavailable
         case identityUnavailable
         case storage
         case unknown(domain: String, code: Int)
@@ -160,6 +161,8 @@ public struct PairingAttemptFailure: Error, Equatable, Sendable, LocalizedError 
             return String(localized: "Approval is needed from a device that holds the home owner’s key. Check Add iPhone on the Mac for available options.", bundle: .module)
         case .approvalExpired:
             return String(localized: "The approval request expired. Start a new request and approve it on an authorized device.", bundle: .module)
+        case .approvalRequestUnavailable:
+            return String(localized: "This approval request is no longer available. Send a new request and compare its new words on the approving device.", bundle: .module)
         case .identityUnavailable:
             return String(localized: "The signing key could not be opened. Unlock this device and try again.", bundle: .module)
         case .storage:

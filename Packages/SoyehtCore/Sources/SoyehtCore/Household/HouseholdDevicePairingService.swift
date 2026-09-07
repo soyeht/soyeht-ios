@@ -235,12 +235,26 @@ public struct URLSessionHouseholdDevicePairingHTTPClient: HouseholdDevicePairing
                 throw PairingAttemptFailure(stage: stage, endpoint: request.url, cause: .invalidResponse)
             }
             guard (200..<300).contains(http.statusCode) else {
+                // A lost/expired request and a missing route can both be 404.
+                // Only the poll endpoint's structured response identifies the
+                // former. It does not establish that the owner declined it.
+                if stage == .poll, http.statusCode == 404,
+                   let refusal = try? JSONDecoder().decode(PollRefusal.self, from: data),
+                   refusal.v == 1, refusal.code == "device_pairing_request_not_found" {
+                    throw PairingAttemptFailure(stage: stage, endpoint: request.url,
+                                                cause: .approvalRequestUnavailable)
+                }
                 throw PairingAttemptFailure(stage: stage, endpoint: request.url, cause: .server(status: http.statusCode))
             }
             return try JSONDecoder().decode(Response.self, from: data)
         } catch {
             try PairingAttemptFailure.rethrow(error, stage: stage, endpoint: request.url)
         }
+    }
+
+    private struct PollRefusal: Decodable {
+        let v: Int
+        let code: String
     }
 
     public static func approvalPathAndQuery() -> String {

@@ -52,7 +52,10 @@ struct AwaitingMacView: View {
 
                 VStack(spacing: 28) {
                     if let house = viewModel.pendingExistingHouse {
-                        existingHouseCard(house)
+                        ScrollView {
+                            existingHouseCard(house)
+                                .padding(.vertical, 12)
+                        }
                     } else {
                         NeoRadar(palette: palette, isSearching: viewModel.phase.isWaitingOnItsOwn)
 
@@ -370,8 +373,15 @@ struct AwaitingMacView: View {
         return result
     }
 
+    private var pendingApprovalWords: [String]? {
+        viewModel.isPairing ? viewModel.approvalWords : nil
+    }
+
     private func existingHouseCard(_ house: AwaitingMacViewModel.ExistingHouseCandidate) -> some View {
-        VStack(spacing: 22) {
+        // Discovery identifies the home; approval identifies this request.
+        // Once the request exists, show only the words being compared now.
+        let words = pendingApprovalWords ?? viewModel.fingerprintWords
+        return VStack(spacing: 22) {
             NeoCard(palette: palette) {
                 HStack(spacing: 14) {
                     Image(systemName: "desktopcomputer")
@@ -393,7 +403,11 @@ struct AwaitingMacView: View {
             .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.card")
 
             VStack(spacing: 8) {
-                Text(LocalizedStringResource(
+                Text(pendingApprovalWords != nil ? LocalizedStringResource(
+                    "onboarding.approval.title",
+                    defaultValue: "Approve this iPhone",
+                    comment: "Title after a request was accepted, awaiting the owner's approval."
+                ) : LocalizedStringResource(
                     "onboarding.isThisYourMac.title",
                     defaultValue: "Is this your Mac?",
                     comment: "I4: the question, asked once."
@@ -403,7 +417,11 @@ struct AwaitingMacView: View {
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
 
-                Text(LocalizedStringResource(
+                Text(pendingApprovalWords != nil ? LocalizedStringResource(
+                    "onboarding.approval.body",
+                    defaultValue: "Ask the home owner to open Soyeht on their connected device and compare these six words before approving this iPhone.",
+                    comment: "These are request words, replacing the home discovery words. The discovered Mac may not hold the owner's key."
+                ) : LocalizedStringResource(
                     "onboarding.isThisYourMac.body",
                     defaultValue: "Your Mac is showing the same six words. If they match, connect.",
                     comment: "I4: what the person compares."
@@ -411,21 +429,24 @@ struct AwaitingMacView: View {
                 .font(NeoFont.body)
                 .foregroundStyle(palette.textSecondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
-            if !viewModel.fingerprintWords.isEmpty {
+            if !words.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(0..<2, id: \.self) { row in
                         HStack(spacing: 8) {
                             ForEach(0..<3, id: \.self) { column in
                                 let index = row * 3 + column
-                                if index < viewModel.fingerprintWords.count {
+                                if index < words.count {
                                     NeoWordWell(
                                         index: index + 1,
-                                        word: viewModel.fingerprintWords[index],
+                                        word: words[index],
                                         palette: palette
                                     )
-                                    .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.word.\(index + 1)")
+                                    .accessibilityIdentifier(pendingApprovalWords != nil
+                                        ? "soyeht.onboarding.approval.word.\(index + 1)"
+                                        : "soyeht.onboarding.isThisYourMac.word.\(index + 1)")
                                 }
                             }
                         }
@@ -438,29 +459,21 @@ struct AwaitingMacView: View {
                     .font(NeoFont.caption)
                     .foregroundStyle(palette.danger)
                     .multilineTextAlignment(.center)
-            } else if viewModel.isPairing, house.isDevicePairing {
-                Text(LocalizedStringResource(
-                    "awaitingMac.existingHouse.ownerApproval",
-                    defaultValue: "Waiting for owner approval. Open Add iPhone on the Mac to review the request, or approve from a device holding this home's owner key.",
-                    comment: "Identifies where an owner can approve this specific device request."
-                ))
-                .font(NeoFont.caption)
-                .foregroundStyle(palette.muted)
-                .multilineTextAlignment(.center)
-            }
-
-            if let words = viewModel.approvalWords, viewModel.isPairing {
-                Text(words.joined(separator: " · "))
-                    .font(.system(.body, design: .monospaced))
-                    .accessibilityIdentifier("soyeht.onboarding.approval.requestWords")
-                Text("Compare these request words on the approving device before accepting.")
-                    .font(NeoFont.caption)
             }
 
             VStack(spacing: 10) {
                 Button(action: { viewModel.connectToExistingHouse() }) {
                     if viewModel.isPairing {
-                        ProgressView().tint(palette.onAccent)
+                        HStack {
+                            ProgressView().tint(palette.onAccent)
+                            if pendingApprovalWords != nil {
+                                Text(LocalizedStringResource(
+                                    "onboarding.approval.waiting",
+                                    defaultValue: "Waiting for approval…",
+                                    comment: "Disabled button while the existing owner reviews the request."
+                                ))
+                            }
+                        }
                     } else {
                         Text(LocalizedStringResource(
                             "awaitingMac.existingHouse.connect",
@@ -866,6 +879,7 @@ final class AwaitingMacViewModel: ObservableObject {
 
     private func recordFailure(_ failure: PairingAttemptFailure) {
         isPairing = false
+        approvalWords = nil
         errorMessage = failure.userMessage
         diagnosticMessage = nil
         phase = .stalled(.pairingFailure(failure))
