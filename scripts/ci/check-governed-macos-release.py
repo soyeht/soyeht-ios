@@ -1776,11 +1776,35 @@ def run_builder_path_controls() -> int:
             trace = root / "trace.txt"
             trace.write_text("")
             signed = root / "signed.marker"
-            environment = dict(os.environ)
-            environment["PATH"] = f"{tools}:{environment['PATH']}"
-            environment["CONTROL_TRACE"] = str(trace)
-            environment["CONTROL_SIGNED"] = str(signed)
-            environment.pop("THEYOS_CHECKOUT", None)
+            # BUILT, never inherited. The first version copied `os.environ`
+            # and removed only THEYOS_CHECKOUT, so `EXPORT_PATH`,
+            # `ARCHIVE_PATH` and `DMG_OUTPUT_DIR` from the surrounding release
+            # came in with it — and the builder honours all three. Its
+            # `rm -rf "${EXPORT_PATH}"` is a real deletion: [jaime] pointed a
+            # caller's EXPORT_PATH at a sentinel directory, ran these controls
+            # unchanged, and got 4/4 PASS with the sentinel destroyed and the
+            # fixture's app written into the caller's destination.
+            #
+            # A control that can delete the artifact of the operation it is
+            # validating is worse than no control, and it reported success
+            # while doing it. Disposable INPUTS are not enough while the
+            # DESTINATIONS come from outside.
+            temporary = root / "tmp"
+            temporary.mkdir(exist_ok=True)
+            environment = {
+                "PATH": f"{tools}:/usr/bin:/bin:/usr/sbin:/sbin",
+                "HOME": str(root / "home"),
+                "TMPDIR": str(temporary),
+                "LANG": "C",
+                "LC_ALL": "C",
+                "CONTROL_TRACE": str(trace),
+                "CONTROL_SIGNED": str(signed),
+                # Every destination pinned inside this fixture.
+                "ARCHIVE_PATH": str(root / "Products/Soyeht.xcarchive"),
+                "EXPORT_PATH": str(root / "Products/export"),
+                "DMG_OUTPUT_DIR": str(root / "Products/dmg"),
+            }
+            (root / "home").mkdir(exist_ok=True)
             if pass_checkout:
                 environment["THEYOS_CHECKOUT"] = str(root)
             completed = subprocess.run(
@@ -1799,7 +1823,63 @@ def run_builder_path_controls() -> int:
             verb = "reaches signing" if expect_signed else "stops before signing"
             print(f"  ok  {name}: {verb}")
 
-    print(f"builder path controls: {passed}/{len(cases)} runs of the real script judged correctly")
+        # [jaime]'s reproduction, kept as a permanent control. The caller's
+        # own EXPORT_PATH points at a directory with a sentinel in it; these
+        # runs must leave it untouched. Before the fix they deleted it and
+        # still reported 4/4.
+        caller_export = base / "caller-export"
+        caller_export.mkdir()
+        sentinel = caller_export / "do-not-delete.txt"
+        sentinel.write_text("the artifact of the operation being validated\n")
+        # ONLY `EXPORT_PATH`, exactly as [jaime] set it. Polluting
+        # `ARCHIVE_PATH` too would point the builder at an archive that does
+        # not exist, so it would exit before reaching `rm -rf "${EXPORT_PATH}"`
+        # and the sentinel would survive for the wrong reason — a control that
+        # passes because the run died early proves nothing. Measured: with
+        # ARCHIVE_PATH also polluted, the reintroduced defect went undetected.
+        previous = {"EXPORT_PATH": os.environ.get("EXPORT_PATH")}
+        os.environ["EXPORT_PATH"] = str(caller_export)
+        try:
+            root = base / "isolation"
+            root.mkdir()
+            builder_sandbox(root, checker_accepts=True, unreachable=False)
+            trace = root / "trace.txt"
+            trace.write_text("")
+            signed = root / "signed.marker"
+            temporary = root / "tmp"
+            temporary.mkdir(exist_ok=True)
+            (root / "home").mkdir(exist_ok=True)
+            subprocess.run(
+                ["bash", str(root / "scripts/build-dmg.sh")],
+                capture_output=True, text=True, timeout=600, check=False,
+                env={
+                    "PATH": f"{tools}:/usr/bin:/bin:/usr/sbin:/sbin",
+                    "HOME": str(root / "home"),
+                    "TMPDIR": str(temporary),
+                    "LANG": "C", "LC_ALL": "C",
+                    "CONTROL_TRACE": str(trace),
+                    "CONTROL_SIGNED": str(signed),
+                    "ARCHIVE_PATH": str(root / "Products/Soyeht.xcarchive"),
+                    "EXPORT_PATH": str(root / "Products/export"),
+                    "DMG_OUTPUT_DIR": str(root / "Products/dmg"),
+                    "THEYOS_CHECKOUT": str(root),
+                })
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        require(
+            sentinel.is_file() and not (caller_export / "Soyeht.app").exists(),
+            "the builder control wrote into the CALLER's destination: it would "
+            "delete the export of the very release it is validating "
+            f"(sentinel survived: {sentinel.is_file()})",
+        )
+        passed += 1
+        print("  ok  the caller's EXPORT_PATH is untouched: destinations stay inside the fixture")
+
+    print(f"builder path controls: {passed}/{len(cases) + 1} runs of the real script judged correctly")
     return passed
 
 
