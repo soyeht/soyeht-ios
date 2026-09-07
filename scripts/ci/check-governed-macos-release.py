@@ -1327,6 +1327,13 @@ def write_engine_product(root: Path, *, app: str = "Soyeht.app", uuid_hex: str =
     return engine
 
 
+def write_engine_launch_agent(root: Path, app: str) -> None:
+    """An app that declares the engine service but ships nothing to run."""
+    agent = (root / app if app else root) / "Contents/Library/LaunchAgents/com.soyeht.engine.plist"
+    agent.parent.mkdir(parents=True, exist_ok=True)
+    agent.write_text("<plist/>\n")
+
+
 def run_engine_receipt_controls() -> int:
     """Prove the receipt guard can still fail, and on the shapes that shipped.
 
@@ -1397,11 +1404,19 @@ def run_engine_receipt_controls() -> int:
             ),
             (
                 "launch-agent-without-engine",
-                lambda root: (root / "Soyeht.app/Contents/Library/LaunchAgents/com.soyeht.engine.plist")
-                    .parent.mkdir(parents=True, exist_ok=True)
-                    or (root / "Soyeht.app/Contents/Library/LaunchAgents/com.soyeht.engine.plist")
-                    .write_text("<plist/>\n"),
+                lambda root: write_engine_launch_agent(root, "Soyeht.app"),
                 "the LaunchAgent is installed with no engine and no receipt",
+            ),
+            (
+                "gutted-companion-beside-a-valid-app",
+                lambda root: (write_engine_product(root, uuid_hex="8" * 32),
+                              write_engine_launch_agent(root, "Uninstall Soyeht.app")),
+                "a VALID Soyeht.app hides a companion whose engine was removed",
+            ),
+            (
+                "root-bundle-without-engine",
+                lambda root: write_engine_launch_agent(root, ""),
+                "the scanned root IS the bundle, so no *.app child exists to glob",
             ),
         )
 
@@ -1432,33 +1447,45 @@ def validate_engine_receipts_only(product_root: Path) -> None:
         validate_engine_receipt(engine)
 
 
+def candidate_bundles(product_root: Path) -> list[Path]:
+    """The product root itself, plus every app bundle directly inside it.
+
+    The root counts because `--scan-product` is also handed a single .app, and
+    `glob("*.app/...")` only ever looks at children — a root bundle would be
+    scanned as if it contained nothing.
+    """
+    bundles = [product_root]
+    bundles.extend(sorted(child for child in product_root.glob("*.app") if child.is_dir()))
+    return bundles
+
+
 def embedded_engines(product_root: Path) -> list[Path]:
-    """Every engine this product ships — and a refusal when it ships none.
+    """Every engine this product ships, refusing PER BUNDLE when one is absent.
 
     EVERY app bundle in the tree, not just the one named `Soyeht.app`: the DMG
     stages a companion app beside it, and a check that knows one filename says
     nothing about the other.
 
     An app that installs the engine LaunchAgent while shipping no engine is a
-    product with the feature removed, not a tree with nothing to say. Returning
-    silently there is how a missing engine AND a missing receipt would both
-    read as "clean" — the failure mode this whole file exists to refuse.
+    product with the feature removed, not a tree with nothing to say. The first
+    version of this asked that question GLOBALLY — only when the whole tree had
+    produced no engine at all — so a valid `Soyeht.app` beside a gutted
+    companion passed, and a root bundle was never examined. [jaime] reproduced
+    both. Absence is a property of each bundle, so it is asked of each bundle.
     """
-    engines = [
-        candidate
-        for candidate in sorted(product_root.glob("*.app/Contents/Helpers/theyos-engine"))
-        if candidate.is_file()
-    ]
-    direct = product_root / "Contents" / "Helpers" / "theyos-engine"
-    if direct.is_file():
-        engines.append(direct)
-    if not engines:
-        for agent in sorted(product_root.glob("*.app/Contents/Library/LaunchAgents/com.soyeht.engine.plist")):
+    engines: list[Path] = []
+    for bundle in candidate_bundles(product_root):
+        engine = bundle / "Contents" / "Helpers" / "theyos-engine"
+        agent = bundle / "Contents" / "Library" / "LaunchAgents" / "com.soyeht.engine.plist"
+        if engine.is_file():
+            engines.append(engine)
+            continue
+        if agent.is_file():
             raise ContractError(
-                f"{agent.parents[3].name} installs the engine LaunchAgent but ships no "
+                f"{bundle.name} installs the engine LaunchAgent but ships no "
                 "theyos-engine: the product would register a service with nothing to run"
             )
-        # A staging tree that is not an app bundle has nothing to check here.
+        # A bundle with neither is not part of the engine's delivery.
     return engines
 
 

@@ -130,11 +130,32 @@ sign_embedded_sparkle() {
 
 # The helper roster comes from the manifest `fetch-engine.sh` and
 # `embed-engine.sh` already read. It used to be six names written out here, and
-# `soyeht-ptyd` was never added when the supervisor shipped: the export step
-# happened to sign it anyway, so nothing broke and nothing said so. A list that
-# is right by luck is the same defect as a list that is wrong.
-engine_helper_names() {
-    python3 "${REPO_ROOT}/scripts/engine-helper-manifest.py"
+# `soyeht-ptyd` was never added when the supervisor shipped: it ended up signed
+# anyway, by inheriting the archive's signature, so nothing broke and nothing
+# said so. A list that is right by luck is the same defect as a list that is
+# wrong.
+#
+# Read ONCE into a variable rather than piped into the loops. `while read …
+# < <(command)` discards the command's exit status: [jaime] replaced the reader
+# with a failing stub and the loop finished with status 0, reporting the
+# signing step complete after signing nothing. A plain assignment under
+# `set -euo pipefail` propagates the failure instead.
+ENGINE_HELPER_NAMES=""
+ENGINE_RECEIPT_PATH=""
+
+load_engine_manifest() {
+    ENGINE_HELPER_NAMES="$(python3 "${REPO_ROOT}/scripts/engine-helper-manifest.py")"
+    ENGINE_RECEIPT_PATH="$(python3 "${REPO_ROOT}/scripts/engine-helper-manifest.py" --bundle-receipt-path)"
+    if [[ -z "${ENGINE_HELPER_NAMES}" || -z "${ENGINE_RECEIPT_PATH}" ]]; then
+        echo "error: the engine helper manifest produced an empty roster or receipt path" >&2
+        exit 1
+    fi
+    # The roster must name the engine itself; a manifest that lists only
+    # support helpers would sign everything except the thing that matters.
+    if ! grep -qx "theyos-engine" <<< "${ENGINE_HELPER_NAMES}"; then
+        echo "error: the engine helper manifest does not list theyos-engine" >&2
+        exit 1
+    fi
 }
 
 sign_engine_helpers() {
@@ -145,7 +166,7 @@ sign_engine_helpers() {
     local helper helper_path entitlements_path authority
 
     echo "→ Re-signing embedded engine helpers..."
-    while IFS= read -r helper; do
+    for helper in ${ENGINE_HELPER_NAMES}; do
         helper_path="${helpers_dir}/${helper}"
         if [[ ! -x "${helper_path}" ]]; then
             echo "error: exported app is missing executable ${helper_path}" >&2
@@ -172,7 +193,7 @@ sign_engine_helpers() {
             echo "error: ${helper} is signed by '${authority:-nothing}', not '${DEVELOPER_ID_APPLICATION}'" >&2
             exit 1
         fi
-    done < <(engine_helper_names)
+    done
 }
 
 # ── The engine artifact receipt ───────────────────────────────────────────────
@@ -200,21 +221,17 @@ sign_engine_helpers() {
 # the LAST helper signature, and only then sign the outer app — the receipt
 # lives in sealed `Contents/Resources`, so writing it after the outer signature
 # would break the seal instead.
-engine_receipt_path() {
-    python3 "${REPO_ROOT}/scripts/engine-helper-manifest.py" --bundle-receipt-path
-}
-
 validate_engine_receipt() {
     local app_path="$1" label="$2"
     python3 "${REPO_ROOT}/scripts/engine-artifact-receipt.py" \
         "${app_path}/Contents/Helpers/theyos-engine" \
-        "${app_path}/$(engine_receipt_path)"
+        "${app_path}/${ENGINE_RECEIPT_PATH}"
     echo "engine receipt (${label}): describes the engine beside it"
 }
 
 rebind_engine_receipt() {
     local app_path="$1"
-    local receipt="${app_path}/$(engine_receipt_path)"
+    local receipt="${app_path}/${ENGINE_RECEIPT_PATH}"
     echo "→ Rebinding the engine receipt to the signed helper..."
     python3 "${REPO_ROOT}/scripts/engine-artifact-receipt.py" \
         "${app_path}/Contents/Helpers/theyos-engine" "${receipt}" \
@@ -280,15 +297,19 @@ if [[ ! -d "${APP_PATH}" ]]; then
     exit 1
 fi
 
+# Before the roster is consumed anywhere. An unset variable here would make
+# every loop below iterate zero times and report success having checked nothing.
+load_engine_manifest
+
 ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
-while IFS= read -r helper; do
+for helper in ${ENGINE_HELPER_NAMES}; do
     helper_path="${APP_PATH}/Contents/Helpers/${helper}"
     if [[ ! -x "${helper_path}" ]]; then
         echo "error: exported app is missing executable ${helper_path}" >&2
         echo "       Run scripts/fetch-engine.sh before archiving, then archive again." >&2
         exit 1
     fi
-done < <(engine_helper_names)
+done
 if [[ ! -f "${ENGINE_AGENT}" ]]; then
     echo "error: exported app is missing ${ENGINE_AGENT}" >&2
     echo "       The Embed Engine Binary build phase did not copy the SMAppService plist." >&2
