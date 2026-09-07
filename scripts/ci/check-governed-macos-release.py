@@ -44,6 +44,7 @@ ENGINE_COMPAT = "Packages/SoyehtCore/Sources/SoyehtCore/EngineVersion/EngineVers
 ENGINE_COMPAT_TESTS = "Packages/SoyehtCore/Tests/SoyehtCoreTests/EngineCompatTests.swift"
 CLAW_INSTALL_DOC = "docs/claw-install-target.md"
 ENGINE_SAFE_STAGES = "scripts/ci/engine-safe-stages.txt"
+TERMINAL_CONTRACT = "scripts/check-terminal-contract.py"
 ABSENT_FILE_SENTINEL = "<ABSENT>"
 PRIVATE_KEY_MARKER = b"-----BEGIN PRIVATE KEY-----"
 
@@ -103,6 +104,7 @@ CONTRACT_PATHS = (
     ENGINE_COMPAT_TESTS,
     CLAW_INSTALL_DOC,
     ENGINE_SAFE_STAGES,
+    TERMINAL_CONTRACT,
 )
 
 PRODUCT_PHASES = (
@@ -760,6 +762,140 @@ def semver_tuple(version: str) -> tuple[int, int, int]:
     return (major, minor, patch)
 
 
+def validate_terminal_contract_checkout(checkout: Path) -> str:
+    """Refuse any engine tree that is not exactly the one this release pins.
+
+    HEAD matching is not enough. A checkout on the right commit with edited
+    sources exercises code that is not in the release, and reports green for
+    an engine nobody will ship — the same "text agrees with text" failure as
+    a stale receipt, one layer up. So the tree must also be clean.
+
+    Fails closed on every unknown: a git that refuses to answer is not a tree
+    that passed.
+    """
+    require(checkout.is_dir(), f"THEYOS_CHECKOUT is not a directory: {checkout}")
+    try:
+        toplevel = subprocess.run(
+            ["git", "-C", str(checkout), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        head = subprocess.run(
+            ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        dirty = subprocess.run(
+            ["git", "-C", str(checkout), "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True, text=True, timeout=120, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ContractError(f"cannot inspect the engine checkout {checkout}: {error}") from error
+
+    for label, completed in (("rev-parse --show-toplevel", toplevel),
+                             ("rev-parse HEAD", head),
+                             ("status --porcelain", dirty)):
+        require(
+            completed.returncode == 0,
+            f"git {label} failed in {checkout}: "
+            f"{(completed.stderr or completed.stdout).strip() or 'no message'}",
+        )
+
+    observed = head.stdout.strip()
+    require(
+        observed == ENGINE_RELEASE_SOURCE,
+        f"the engine checkout is at {observed or '<empty>'}, but this release pins "
+        f"{ENGINE_RELEASE_SOURCE}; a contract run against another tree says nothing "
+        "about the engine being shipped",
+    )
+    modified = [line for line in dirty.stdout.splitlines() if line.strip()]
+    require(
+        not modified,
+        f"the engine checkout at {checkout} has {len(modified)} modified tracked "
+        f"file(s) (first: {modified[0].strip() if modified else ''}); the contract "
+        "would exercise sources that are not in the pinned release",
+    )
+    return f"{toplevel.stdout.strip()}@{observed}"
+
+
+def run_terminal_contract(checkout: Path) -> None:
+    """Validate the pinned checkout, then run the real cross-repo contract."""
+    subject = validate_terminal_contract_checkout(checkout)
+    print(f"terminal contract subject: {subject}")
+    script = REPO_ROOT / TERMINAL_CONTRACT
+    require(script.is_file(), f"the terminal contract script is missing: {script}")
+    with tempfile.TemporaryDirectory(prefix="governed-terminal-contract-") as scratch:
+        completed = subprocess.run(
+            [sys.executable, str(script), "--theyos", str(checkout),
+             "--swift-scratch", scratch],
+            timeout=3600, check=False,
+        )
+    require(
+        completed.returncode == 0,
+        "the cross-repo terminal contract failed; the release stops here",
+    )
+
+
+def validate_terminal_contract_gate(files: Mapping[str, str]) -> None:
+    """The cross-repo terminal contract must run to cut a release.
+
+    WHY THIS EXISTS. `check-terminal-contract.py` drives a real Swift request
+    through a real Rust engine and back, and rejects seven boundary defects
+    that no unit test on either side can see — the Swift suite cannot fake a
+    supervisor, and the Rust suite cannot fake the client. It is the only check
+    that speaks for both repositories at once.
+
+    And nothing invoked it. Two plan documents mentioned it; the release path
+    did not. It ran for `mac-v0.1.50` because a person remembered, which is a
+    property of that afternoon, not of the release. That is the shape already
+    documented in `read_engine_pin_snapshot`: a checker that exists, is
+    correct, and is never reached.
+
+    So the assertion lives HERE, in the engine-pin path, and not in the full
+    contract — the full contract aborts on a workflow this repository does not
+    track, so an assertion placed there would itself never run. A dead gate
+    guarding a dead gate is the joke this file keeps failing to stop telling.
+
+    Text in the right order is not execution, so this is only half the guard;
+    `run_terminal_contract_gate_controls` runs the builder and proves the
+    refusals actually stop it.
+    """
+    build_dmg = files[BUILD_DMG]
+    require_once(
+        build_dmg, "--run-terminal-contract",
+        "the DMG builder must invoke the governed terminal-contract runner",
+    )
+
+    # Compare CALL SITES, not the first time a name appears. The first draft of
+    # this compared `index("sign_embedded_sparkle")`, which found the function
+    # DEFINITION near the top of the file and reported the gate misplaced while
+    # it was correct. Definitions are not execution; top-level invocations are
+    # the closest thing to it that text can offer.
+    def invocation(name: str) -> int:
+        # `(?=$|\s)` excludes the DEFINITION line, which is `name() {` — the
+        # word boundary alone matched it and reported the gate misplaced while
+        # it sat in the right place.
+        match = re.search(rf"^{re.escape(name)}(?=$|\s)", build_dmg, re.MULTILINE)
+        require(match is not None, f"the DMG builder never invokes {name} at top level")
+        return match.start()
+
+    require(
+        invocation("run_terminal_contract") < build_dmg.index("hdiutil create"),
+        "the terminal contract must run BEFORE the image is created; after it, a "
+        "refusal costs a notarization round and tempts whoever is waiting to skip it",
+    )
+    require(
+        invocation("run_terminal_contract") < invocation("sign_embedded_sparkle"),
+        "the terminal contract belongs in the preflight, before anything is exported "
+        "or re-signed: the point is to refuse early, not to refuse expensively",
+    )
+    # The commit is DERIVED, never copied. A second literal in shell is the
+    # duplicated-pin habit this whole file exists to break.
+    require(
+        ENGINE_RELEASE_SOURCE not in build_dmg,
+        "the DMG builder must not repeat the pinned engine commit; it is derived "
+        "from this contract by the runner",
+    )
+
+
 def validate_engine_release_pin(files: Mapping[str, str]) -> None:
     """Bind the shipped engine pin, checksum, client floor, tests, and receipt."""
 
@@ -775,6 +911,8 @@ def validate_engine_release_pin(files: Mapping[str, str]) -> None:
     require(checksums[pin] == ENGINE_RELEASE_SHA256,
             f"engine checksum differs from the authenticated {pin} release asset")
     require(floor == pin, f"engine compatibility floor {floor} differs from pin {pin}")
+
+    validate_terminal_contract_gate(files)
 
     tests = files[ENGINE_COMPAT_TESTS]
     required_test = f"func {ENGINE_RELEASE_FLOOR_TEST}()"
@@ -1017,6 +1155,8 @@ ENGINE_PIN_PATHS = (
     ENGINE_COMPAT_TESTS,
     CLAW_INSTALL_DOC,
     ENGINE_SAFE_STAGES,
+    BUILD_DMG,
+    TERMINAL_CONTRACT,
 )
 
 
@@ -1332,6 +1472,156 @@ def write_engine_launch_agent(root: Path, app: str) -> None:
     agent = (root / app if app else root) / "Contents/Library/LaunchAgents/com.soyeht.engine.plist"
     agent.parent.mkdir(parents=True, exist_ok=True)
     agent.write_text("<plist/>\n")
+
+
+def run_terminal_contract_gate_controls() -> int:
+    """Prove the checkout rules REFUSE, by running them, not by reading them.
+
+    Text in the right order is not execution — the lesson of the `< <(…)` loop
+    that reported a signing step complete having signed nothing. So every
+    refusal here is measured against the real `validate_terminal_contract_checkout`,
+    on real git repositories built for the occasion.
+    """
+    passed = 0
+    with tempfile.TemporaryDirectory(prefix="governed-terminal-checkout-") as directory:
+        fixture = Path(directory)
+
+        def repository(name: str, *, commits: int = 1) -> Path:
+            root = fixture / name
+            root.mkdir()
+            for args in (["init", "-q", "-b", "main"],
+                         ["config", "user.email", "control@example.test"],
+                         ["config", "user.name", "control"]):
+                subprocess.run(["git", "-C", str(root), *args], check=True,
+                               capture_output=True)
+            for index in range(commits):
+                (root / "source.rs").write_text(f"fn main() {{}} // {index}\n")
+                subprocess.run(["git", "-C", str(root), "add", "-A"], check=True,
+                               capture_output=True)
+                subprocess.run(["git", "-C", str(root), "commit", "-qm", f"c{index}"],
+                               check=True, capture_output=True)
+            return root
+
+        def head_of(root: Path) -> str:
+            return subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                                  capture_output=True, text=True, check=True).stdout.strip()
+
+        # The acceptance: a clean tree whose HEAD is the pinned commit. The
+        # pin is a real 40-hex sha of another repository, so the fixture is
+        # made to answer it rather than the constant bent to fit the fixture.
+        good = repository("pinned")
+        global ENGINE_RELEASE_SOURCE
+        original = ENGINE_RELEASE_SOURCE
+        try:
+            ENGINE_RELEASE_SOURCE = head_of(good)
+            validate_terminal_contract_checkout(good)
+            passed += 1
+            print("  ok  a clean checkout on the pinned commit is accepted")
+
+            cases: tuple[tuple[str, Callable[[], Path], str], ...] = (
+                (
+                    "missing-checkout",
+                    lambda: fixture / "does-not-exist",
+                    "the engine tree is simply not there",
+                ),
+                (
+                    "not-a-repository",
+                    lambda: plain_directory(fixture / "plain"),
+                    "a directory that git cannot answer for",
+                ),
+                (
+                    "wrong-commit",
+                    lambda: repository("other", commits=2),
+                    "a real checkout, clean, on a DIFFERENT commit",
+                ),
+                (
+                    "dirty-source",
+                    lambda: dirty_checkout(good),
+                    "the pinned commit with an edited tracked source file",
+                ),
+            )
+            for name, build, why in cases:
+                target = build()
+                try:
+                    validate_terminal_contract_checkout(target)
+                except ContractError:
+                    passed += 1
+                    print(f"  ok  refused: {name} — {why}")
+                    continue
+                raise ContractError(f"terminal contract checkout control survived: {name}")
+        finally:
+            ENGINE_RELEASE_SOURCE = original
+            (good / "source.rs").write_text("fn main() {} // 0\n")
+
+    print(f"terminal contract checkout controls: {passed}/5 shapes judged correctly")
+    return passed
+
+
+def plain_directory(path: Path) -> Path:
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def dirty_checkout(root: Path) -> Path:
+    """The pinned commit, with a tracked source edited under it."""
+    (root / "source.rs").write_text("fn main() { /* edited after the tag */ }\n")
+    return root
+
+
+def run_builder_refusal_controls() -> int:
+    """The builder must ABORT on a refusal, not carry on past it.
+
+    The checkout rules refusing is one property; the release script actually
+    stopping is another, and this repository has already shipped a loop that
+    swallowed a failure and declared its step complete. So the real
+    `run_terminal_contract` is extracted from `build-dmg.sh` unchanged and run
+    under `set -euo pipefail`, with a marker after it that must never print.
+    """
+    build_dmg = (REPO_ROOT / BUILD_DMG).read_text()
+    match = re.search(r"^run_terminal_contract\(\) \{.*?^\}", build_dmg,
+                      re.MULTILINE | re.DOTALL)
+    require(match is not None, "cannot extract run_terminal_contract from the DMG builder")
+    body = match.group(0)
+
+    passed = 0
+    with tempfile.TemporaryDirectory(prefix="governed-builder-refusal-") as directory:
+        harness = Path(directory) / "harness.sh"
+        marker = "REACHED_PACKAGING"
+        cases = (
+            ("missing-checkout", "", "THEYOS_CHECKOUT is not set at all"),
+            ("checker-refuses", str(Path(directory)), "the governed runner refuses the checkout"),
+        )
+        for name, checkout, why in cases:
+            # A stub checker that always refuses stands in for every rule the
+            # real one enforces; what is under test here is the builder's
+            # reaction, not the rule.
+            stub = Path(directory) / "bin"
+            stub.mkdir(exist_ok=True)
+            harness.write_text(
+                "set -euo pipefail\n"
+                f'REPO_ROOT="{directory}"\n'
+                f'THEYOS_CHECKOUT="{checkout}"\n'
+                '[[ -n "${THEYOS_CHECKOUT}" ]] || unset THEYOS_CHECKOUT\n'
+                'python3() { return 1; }\n'
+                'grep() { command grep "$@"; }\n'
+                f"{body}\n"
+                "run_terminal_contract\n"
+                f'echo "{marker}"\n'
+            )
+            (Path(directory) / "scripts").mkdir(exist_ok=True)
+            (Path(directory) / "scripts" / "theyos-engine.version").write_text("0.0.0\n")
+            completed = subprocess.run(["bash", str(harness)], capture_output=True,
+                                       text=True, timeout=120, check=False)
+            require(
+                completed.returncode != 0 and marker not in completed.stdout,
+                f"builder refusal control survived: {name} — {why} "
+                f"(rc={completed.returncode}, reached={marker in completed.stdout})",
+            )
+            passed += 1
+            print(f"  ok  aborted: {name} — {why}")
+
+    print(f"builder refusal controls: {passed}/{len(cases)} refusals stop the release")
+    return passed
 
 
 def run_engine_receipt_controls() -> int:
@@ -1695,6 +1985,8 @@ def run_self_tests(snapshot: Mapping[str, str]) -> int:
     run_dispatch_injection_control(snapshot)
     run_product_scan_controls()
     run_engine_receipt_controls()
+    run_terminal_contract_gate_controls()
+    run_builder_refusal_controls()
     run_engine_artifact_controls(snapshot)
     print(f"governed macOS release contract: {passed}/{len(mutants())} mutants rejected")
     return passed
@@ -1703,6 +1995,11 @@ def run_self_tests(snapshot: Mapping[str, str]) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", action="store_true", help="also reject the adversarial mutant table")
+    parser.add_argument(
+        "--run-terminal-contract",
+        type=Path,
+        help="validate the pinned theyos checkout and run the cross-repo terminal contract",
+    )
     parser.add_argument(
         "--engine-pin-only",
         action="store_true",
@@ -1738,6 +2035,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.run_terminal_contract is not None:
+            validate_engine_release_pin(read_engine_pin_snapshot())
+            # The controls run HERE, once per release, before the expensive
+            # part. They lived in `--self-test` alone, which cannot run in this
+            # repository — the full snapshot aborts on a workflow that was
+            # deleted in #26 — so a guard proven only there is a guard proven
+            # nowhere. A guard nobody can fail is not a guard, and a guard
+            # whose calibration never executes is the same thing wearing a
+            # better hat.
+            run_engine_receipt_controls()
+            run_terminal_contract_gate_controls()
+            run_builder_refusal_controls()
+            run_terminal_contract(args.run_terminal_contract)
+            print("terminal contract: PASS")
+            return 0
         if args.engine_pin_only:
             require(
                 args.scan_product is None
