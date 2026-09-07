@@ -27,6 +27,10 @@ To ship a deploy, the following levels must be green:
 | `full` | Large feature | standard + critical automated suites |
 | `release` | Release candidate | full + assisted/manual suites + cross-server + report |
 
+For pairing changes, also use [distributed-build acceptance](domains/production-pairing-acceptance.md).
+`make qa-ios-export` checks the actual signed IPA and exercises refusal controls;
+it does not replace physical device, upgrade-history or TestFlight coverage.
+
 ---
 
 ## Domain Test Plans
@@ -44,6 +48,7 @@ To ship a deploy, the following levels must be green:
 | Claw Store & Deploy | [claw-store-deploy.md](domains/claw-store-deploy.md) | ST-Q-CLAW-001..024 | standard | auto | Yes |
 | Deep Links | [deep-links.md](domains/deep-links.md) | ST-Q-DEEP-001..011 | full | assisted | Yes |
 | Paired Macs Flow (Fase 2) | [paired-macs-flow.md](domains/paired-macs-flow.md) | ST-Q-PM-001..013 | standard | auto | Yes |
+| Pairing on distributed builds | [production-pairing-acceptance.md](domains/production-pairing-acceptance.md) | Artifact + behavioral coverage below | release | assisted | Yes |
 | Multi-Server | [multi-server.md](domains/multi-server.md) | ST-Q-MSRV-001..012 | full | assisted | Yes |
 | Multi-Server Fan-Out | [multi-server-fanout.md](domains/multi-server-fanout.md) | ST-Q-MFAN-001..012 | standard | auto | Yes |
 | WebSocket Recovery | [websocket-recovery.md](domains/websocket-recovery.md) | ST-Q-WSRC-001..010 | full | assisted | Yes |

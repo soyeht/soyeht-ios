@@ -30,6 +30,15 @@ test:
 test-spm:
 	SWIFT_TEST_DISABLE_PARALLELIZATION=1 swift test -v
 
+# Read the actual exported IPA. These controls cover the artifact only;
+# QA/domains/production-pairing-acceptance.md defines the separate device work.
+.PHONY: qa-ios-export
+qa-ios-export:
+	@test -n "$(IOS_IPA)" || { echo "IOS_IPA must name the exported candidate" >&2; exit 1; }
+	@test -n "$(IOS_DEVELOPMENT_APP)" || { echo "IOS_DEVELOPMENT_APP must name the signed negative control" >&2; exit 1; }
+	python3 scripts/qa/calibrate_ios_distribution.py "$(IOS_IPA)" --development-app "$(IOS_DEVELOPMENT_APP)"
+	python3 scripts/qa/inspect_ios_distribution.py "$(IOS_IPA)"
+
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
 	swift package clean
