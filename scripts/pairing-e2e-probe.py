@@ -46,6 +46,10 @@ THE INVARIANTS
   WORDS-MATCH       the six words the Mac shows are the six the phone shows.
                     Two screens showing six words each prove nothing until they
                     are the SAME six.
+  HOUSE-UNCHANGED   the engine's household directory has the same files with the
+                    same bytes after the run as before it. Connecting to a Mac
+                    writes nothing into the home — no request, no event, no
+                    certificate. Judged from two snapshots, not from log lines.
   MAC-LOCAL         a home that already has an owner still authenticates a new
                     phone's PRESENCE on the Mac, over the Mac-local secret the
                     claim delivered, and NO household request is raised for it.
@@ -83,6 +87,8 @@ DEV_ADMIN_PORT = 8902
 PROD_BOOTSTRAP_PORT = 8091
 PROD_ADMIN_PORT = 8892
 
+DEV_HOUSE_DIR = os.path.expanduser(
+    "~/Library/Application Support/SoyehtDev/household-state/household")
 DEV_ENGINE_LOG = os.path.expanduser("~/Library/Logs/SoyehtDev/engine.log")
 DEV_APP_PROCESS = "Soyeht Dev"
 MAC_SUBSYSTEM = "com.soyeht.mac"
@@ -119,6 +125,11 @@ class Transcript:
     mac: list[str] = field(default_factory=list)
     phone: list[str] = field(default_factory=list)
     engine: list[str] = field(default_factory=list)
+    # SHA-256 per file of the engine's household directory, before the run
+    # and after it. None when the run did not snapshot (judge_dir without a
+    # house.json, or the synthetic fixtures).
+    house_before: dict[str, str] | None = None
+    house_after: dict[str, str] | None = None
 
     def mac_grep(self, needle: str) -> list[str]:
         return [line for line in self.mac if needle in line]
@@ -428,7 +439,12 @@ def _ids(lines: list[str], pattern: re.Pattern[str]) -> set[str]:
     return {m.group(1).upper() for line in lines for m in [pattern.search(line)] if m}
 
 
-def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
+_OWN_DEVICE_ID = re.compile(r"\bdevice_id=([0-9A-Fa-f-]{36})")
+
+
+def inv_mac_local(t: Transcript, household_devices: int | None,
+                  expected_device: str | None = None,
+                  expected_mac: str | None = None) -> Finding:
     """A phone joining a home that already has an owner gets presence anyway.
 
     Two grants travel in the claim. The Mac-local secret opens presence and
@@ -448,6 +464,15 @@ def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
     Issued for A and authenticated for B is a neighbour's run, not this one.
     The engine's request line carries only a digest, so a household request
     is judged inside the capture window and cannot be pinned to a device.
+
+    Each side closing on itself is still not one run ([jaime]): the Mac tape
+    can hold a consistent pair A↔X while the phone tape holds B↔Y. So the
+    subjects are named. The phone under test logs its own id when it mints
+    one (`device_id_generated device_id=`, which a reset run always does),
+    and that id must be the one the Mac issued to and authenticated; the Mac
+    under test is `expected_mac` (its stored macId), and that must be the one
+    the phone sent to and accepted. `expected_device` pins the phone when
+    the tape did not mint an id.
     """
     if household_devices is None:
         return Finding("MAC-LOCAL", "n/a",
@@ -463,11 +488,20 @@ def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
     ceremony = (t.phone_grep("awaiting_approval")
                 or t.engine_grep("device_pairing.request.success"))
     joined = t.engine_grep("pair_device.confirm.success")
+    # The consumer's own verdict lines ([jaime], 57b2f54b): the success token
+    # says whether the home was enrolled, and a claim-stage failure is typed.
+    confirmed = t.phone_grep("existing_house.mac_connection_confirmed household_enrolled=false")
+    enrolled = t.phone_grep("existing_house.mac_connection_confirmed household_enrolled=true")
+    claim_failed = [line for line in t.phone_grep("pairing.failed") if "stage=claim" in line]
 
-    if joined:
+    if joined or enrolled:
         return Finding("MAC-LOCAL", "fail",
                        "this run joined the household; MAC-LOCAL measures the "
                        "path that reaches the Mac without an owner's approval")
+    if claim_failed and not confirmed:
+        cause = claim_failed[-1].split("pairing.failed", 1)[1].strip()
+        return Finding("MAC-LOCAL", "fail",
+                       f"the app gave up at the claim stage: {cause}")
     if ceremony and not (issued & mac_authenticated):
         return Finding("MAC-LOCAL", "fail",
                        "the phone raised a household request and waited on the "
@@ -493,15 +527,61 @@ def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
         return Finding("MAC-LOCAL", "fail",
                        "the phone's accepted ack names a different Mac than the "
                        "one it sent the HMAC to")
+    own = _ids(t.phone_grep("device_id_generated"), _OWN_DEVICE_ID)
+    subject_device = {expected_device.upper()} if expected_device else own
+    if subject_device and not (subject_device & issued & mac_authenticated):
+        return Finding("MAC-LOCAL", "fail",
+                       "the Mac's issued/authenticated device is not the phone "
+                       "under test — a consistent pair, but not this run's")
+    if expected_mac and expected_mac.upper() not in (sent_to & phone_authenticated):
+        return Finding("MAC-LOCAL", "fail",
+                       "the Mac the phone sent to and accepted is not the Mac "
+                       "under test — a consistent pair, but not this run's")
+    if not subject_device and not expected_mac:
+        return Finding("MAC-LOCAL", "fail",
+                       "no subject named: the phone minted no id in this tape "
+                       "and no --mac-id/--device-id was given, so the four lines "
+                       "cannot be tied to one pair")
     if ceremony:
         return Finding("MAC-LOCAL", "fail",
                        "presence authenticated, but a household request was "
                        "raised in the window — joining must stay a separate "
                        "gesture")
+    if not confirmed:
+        return Finding("MAC-LOCAL", "fail",
+                       "presence authenticated, but the app never confirmed "
+                       "the connection (no mac_connection_confirmed line)")
     return Finding("MAC-LOCAL", "pass",
                    "presence authenticated for the device the Mac issued the "
                    "secret to, no household request raised (presence only; "
                    "pane open/attach are their own readback)")
+
+
+def inv_house_unchanged(t: Transcript) -> Finding:
+    """Connecting to a Mac writes nothing into the engine's home.
+
+    Two snapshots of the household directory — every file hashed — taken by
+    the run before the phone moved and after the tapes were read. A joined
+    household, a queued pair request, a rotated certificate all change bytes
+    here; a Mac-local connection must not. Names only in the verdict: the
+    files hold keys.
+    """
+    if t.house_before is None or t.house_after is None:
+        return Finding("HOUSE-UNCHANGED", "n/a",
+                       "the household directory was not snapshotted")
+    before, after = t.house_before, t.house_after
+    added = sorted(set(after) - set(before))
+    removed = sorted(set(before) - set(after))
+    changed = sorted(name for name in before if name in after and before[name] != after[name])
+    if added or removed or changed:
+        parts = []
+        if changed: parts.append("changed " + ", ".join(changed))
+        if added: parts.append("added " + ", ".join(added))
+        if removed: parts.append("removed " + ", ".join(removed))
+        return Finding("HOUSE-UNCHANGED", "fail",
+                       "the home was written during the run: " + "; ".join(parts))
+    return Finding("HOUSE-UNCHANGED", "pass",
+                   f"{len(before)} files, same bytes before and after")
 
 
 # The six owner-signing capability states, from [jaime]'s addendum G. The
@@ -745,7 +825,9 @@ def inv_advert_follows_window(t: Transcript) -> Finding:
 
 def judge(t: Transcript, phone_has_tailnet: bool,
           household_devices: int | None,
-          captured_secs: float | None = None) -> list[Finding]:
+          captured_secs: float | None = None, *,
+          expected_device: str | None = None,
+          expected_mac: str | None = None) -> list[Finding]:
     return [
         inv_tailnet_kept(t, phone_has_tailnet),
         inv_lan_works(t, phone_has_tailnet),
@@ -756,7 +838,8 @@ def judge(t: Transcript, phone_has_tailnet: bool,
         inv_capability_honest(t),
         inv_words_match(t),
         inv_advert_follows_window(t),
-        inv_mac_local(t, household_devices),
+        inv_mac_local(t, household_devices, expected_device, expected_mac),
+        inv_house_unchanged(t),
     ]
 
 
@@ -812,6 +895,21 @@ def collect_phone_log(udid: str, minutes: int, out_dir: str) -> list[str]:
         capture_output=True, text=True,
     )
     return shown.stdout.splitlines()
+
+
+def house_snapshot(directory: str | None) -> dict[str, str] | None:
+    """SHA-256 of every file under the engine's household directory, keyed by
+    relative path. None when there is no such directory to look at."""
+    if not directory or not os.path.isdir(directory):
+        return None
+    import hashlib
+    snapshot = {}
+    for root, _dirs, files in os.walk(directory):
+        for name in files:
+            path = os.path.join(root, name)
+            with open(path, "rb") as handle:
+                snapshot[os.path.relpath(path, directory)] = hashlib.sha256(handle.read()).hexdigest()
+    return snapshot
 
 
 def household_device_count(port: int) -> int | None:
@@ -888,10 +986,39 @@ BAD_FIRST_PHONE = Transcript(
 GOOD_MAC_LOCAL = Transcript(
     mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
          "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
-    phone=["pair.endpoint source=claim host=192.168.1.20 port=8101",
+    phone=["device_id_generated device_id=9E2C3A1B-0000-4000-8000-00000000000A",
+           "pair.endpoint source=claim host=192.168.1.20 port=8101",
            "presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
-           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001"],
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "existing_house.mac_connection_confirmed household_enrolled=false"],
     engine=[],
+    house_before={"household_record.cbor": "aa", "owner_events/log.cbor": "bb"},
+    house_after={"household_record.cbor": "aa", "owner_events/log.cbor": "bb"},
+)
+
+# The app reached the Mac and ALSO enrolled the home under it.
+BAD_MAC_LOCAL_ENROLLED = Transcript(
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
+    phone=["presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "existing_house.mac_connection_confirmed household_enrolled=true"],
+    engine=[],
+)
+
+# The card was on screen, the claim never came, and the app said so.
+BAD_MAC_LOCAL_CLAIM_TIMEOUT = Transcript(
+    mac=[],
+    phone=["pairing.failed stage=claim cause=network(timeout) endpoint=http://192.168.1.20:8101/"],
+    engine=[],
+)
+
+# A run that wrote into the home: the owner-events log grew.
+BAD_HOUSE_WRITTEN = Transcript(
+    mac=[], phone=[], engine=[],
+    house_before={"household_record.cbor": "aa", "owner_events/log.cbor": "bb"},
+    house_after={"household_record.cbor": "aa", "owner_events/log.cbor": "cc",
+                 "owner_events/new.cbor": "dd"},
 )
 
 # The owner's production run: the secret was issued, and the phone raised a
@@ -920,6 +1047,20 @@ BAD_MAC_LOCAL_NEIGHBOUR = Transcript(
          "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000B"],
     phone=["presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
            "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001"],
+    engine=[],
+)
+
+# Two pairs, each consistent with itself, neither the pair under test: the
+# Mac tape shows phone A issued and authenticated; the phone tape is phone
+# B's, sent to and accepted by Mac 2. Every per-side intersection is
+# non-empty. Only naming the subjects tells them apart.
+BAD_MAC_LOCAL_TWO_PAIRS = Transcript(
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
+    phone=["device_id_generated device_id=9E2C3A1B-0000-4000-8000-00000000000B",
+           "presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000002",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000002",
+           "existing_house.mac_connection_confirmed household_enrolled=false"],
     engine=[],
 )
 
@@ -1206,6 +1347,8 @@ def self_test() -> int:
          BAD_MAC_LOCAL_DEADLOCK, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, presence up but a household request raised anyway",
          BAD_MAC_LOCAL_CEREMONY_ANYWAY, False, 1, {"MAC-LOCAL": "fail"}),
+        ("bad, two consistent pairs, neither under test",
+         BAD_MAC_LOCAL_TWO_PAIRS, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, a neighbour's presence under this run's secret",
          BAD_MAC_LOCAL_NEIGHBOUR, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, HMAC to one Mac, ack from another",
@@ -1214,6 +1357,16 @@ def self_test() -> int:
          {"MAC-LOCAL": "n/a"}),
         ("owner count unread: MAC-LOCAL cannot borrow the scenario",
          GOOD_MAC_LOCAL, False, None, {"MAC-LOCAL": "n/a"}),
+        ("bad, reached the Mac and enrolled the home under it",
+         BAD_MAC_LOCAL_ENROLLED, False, 1, {"MAC-LOCAL": "fail"}),
+        ("bad, the claim never came and the app said so",
+         BAD_MAC_LOCAL_CLAIM_TIMEOUT, False, 1, {"MAC-LOCAL": "fail"}),
+        ("good, the home has the same bytes after the run",
+         GOOD_MAC_LOCAL, False, 1, {"HOUSE-UNCHANGED": "pass"}),
+        ("bad, the run wrote into the home",
+         BAD_HOUSE_WRITTEN, False, 1, {"HOUSE-UNCHANGED": "fail"}),
+        ("no snapshot, so HOUSE-UNCHANGED cannot be judged",
+         BAD_MAC_LOCAL_ENROLLED, False, 1, {"HOUSE-UNCHANGED": "n/a"}),
         ("good, key present but locked", GOOD_CAPABILITY_LOCKED, True, 1,
          {"CAPABILITY-HONEST": "pass"}),
         ("bad, called locked missing", BAD_CAPABILITY_LIES, True, 1,
@@ -1311,6 +1464,7 @@ def run(args) -> int:
     mac_log = os.path.join(out_dir, "mac.log")
 
     devices_before = household_device_count(args.bootstrap_port)
+    house_before = house_snapshot(args.house_dir)
     offset = engine_offset(args.engine_log)
     capture = start_mac_capture(mac_log, args.mac_process)
     print(f"capturing into {out_dir}")
@@ -1333,12 +1487,15 @@ def run(args) -> int:
     phone_lines = (collect_phone_log(args.udid, args.collect_minutes, out_dir)
                    if args.udid else ["<<no UDID given: the phone was not measured>>"])
 
-    transcript = Transcript(mac=mac_lines, phone=phone_lines, engine=engine_lines)
+    transcript = Transcript(mac=mac_lines, phone=phone_lines, engine=engine_lines,
+                            house_before=house_before,
+                            house_after=house_snapshot(args.house_dir))
     with open(os.path.join(out_dir, "transcript.json"), "w") as handle:
         json.dump(asdict(transcript), handle, indent=2)
 
     findings = judge(transcript, args.phone_has_tailnet, devices_before,
-                     captured_secs=float(args.hold_secs))
+                     captured_secs=float(args.hold_secs),
+                     expected_device=args.device_id, expected_mac=args.mac_id)
 
     return report(findings, args.scenario, out_dir, transcript)
 
@@ -1390,14 +1547,22 @@ def judge_dir(args) -> int:
         with open(path, errors="replace") as handle:
             return handle.read().splitlines()
 
+    house_path = os.path.join(directory, "transcript.json")
+    house_before = house_after = None
+    if os.path.exists(house_path):
+        with open(house_path) as handle:
+            saved = json.load(handle)
+        house_before, house_after = saved.get("house_before"), saved.get("house_after")
     transcript = Transcript(mac=lines("mac.log"), phone=lines("phone.log"),
-                            engine=lines("engine.log"))
+                            engine=lines("engine.log"),
+                            house_before=house_before, house_after=house_after)
     if not (transcript.mac or transcript.phone or transcript.engine):
         print(f"refusing: no mac.log, phone.log or engine.log in {directory}. "
               "An empty transcript makes every invariant report n/a, which "
               "reads like a clean run.")
         return 1
     findings = judge(transcript, phone_has_tailnet=args.phone_has_tailnet,
+                     expected_device=args.device_id, expected_mac=args.mac_id,
                      household_devices=args.devices,
                      captured_secs=args.captured_secs)
     return report(findings, args.scenario, directory, transcript)
@@ -1417,6 +1582,14 @@ def main() -> int:
     parser.add_argument("--collect-minutes", type=int, default=5)
     parser.add_argument("--bootstrap-port", type=int, default=DEV_BOOTSTRAP_PORT)
     parser.add_argument("--engine-log", default=DEV_ENGINE_LOG)
+    parser.add_argument("--mac-id", help="macId of the Mac under test (its "
+                        "stored com.soyeht.mac.macId); MAC-LOCAL requires it on "
+                        "the phone's sent and accepted lines")
+    parser.add_argument("--device-id", help="deviceID of the phone under test, "
+                        "when its tape did not mint one")
+    parser.add_argument("--house-dir", default=DEV_HOUSE_DIR,
+                        help="engine household directory to snapshot before "
+                             "and after, for HOUSE-UNCHANGED")
     parser.add_argument("--mac-process", default=DEV_APP_PROCESS)
     parser.add_argument("--out-dir")
     parser.add_argument("--judge-dir",

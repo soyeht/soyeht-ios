@@ -63,6 +63,9 @@ ID_KEEP_LOOKING = "soyeht.onboarding.notFound.keepLooking"
 # approving Mac must show the SAME six. Reading them here is the only way an
 # automated run can tell "both ends agree" from "both ends show six words".
 ID_APPROVAL_WORDS = "soyeht.onboarding.approval.requestWords"
+ID_PAIRED_CONTINUE = "soyeht.onboarding.pairedContinue"     # "Open a terminal"
+ID_HOME_NEW_SESSION = "soyeht.home.newSessionButton"
+ID_TERMINAL_VIEW = "soyeht.terminal.terminalView"
 
 # The onboarding a fresh phone must walk before it advertises itself at all.
 # A phone parked on the welcome carousel publishes nothing, so the Mac logs
@@ -258,6 +261,12 @@ class Phone:
     def click(self, element: str) -> None:
         self._call("POST", f"/session/{self.session}/element/{element}/click", {})
 
+    def type_keys(self, text: str) -> None:
+        """Types into whatever has the keyboard, character by character, the
+        way a person would. `\n` is Return."""
+        self._call("POST", f"/session/{self.session}/wda/keys",
+                   {"value": list(text)})
+
     def text_of(self, accessibility_id: str) -> str | None:
         element = self.find(accessibility_id)
         if element is None:
@@ -305,12 +314,30 @@ def app_menu_title(process: str) -> str:
     raise DriveError(f"{process} exposes no application menu")
 
 
-def open_add_iphone(process: str = DEV_APP_PROCESS) -> None:
+def open_add_iphone(process: str = DEV_APP_PROCESS) -> bool:
+    """Open the Mac's Add iPhone sheet, best-effort. Returns whether it opened.
+
+    The sheet is one way the Mac claims an advertising phone; the other is the
+    always-on automatic setup-invitation listener, which claims the phone with
+    no sheet at all (measured run1 2026-09-07: `automatic_listener.claimed`
+    followed by `direct_probe.notified ... mac=…:8101` while this osascript
+    step was denied). Menu scripting needs the responsible process to hold
+    Accessibility; a pane parented by production `soyeht-ptyd` does not, and
+    that is not a pairing failure. So a denial here returns False and the run
+    goes on — the phone still receives the claim from the automatic listener,
+    and the phone-side tap is driven through WebDriverAgent, which needs no
+    Mac Accessibility.
+    """
     guard_mac_app(process)
-    menu = app_menu_title(process)
-    osascript(f'tell application "System Events" to tell process "{process}" to '
-              'click menu item "Devices…" of menu 1 of menu bar item '
-              f'"{menu}" of menu bar 1')
+    try:
+        menu = app_menu_title(process)
+        osascript(f'tell application "System Events" to tell process "{process}" to '
+                  'click menu item "Devices…" of menu 1 of menu bar item '
+                  f'"{menu}" of menu bar 1')
+    except DriveError as error:
+        print(f"note: could not open Add iPhone by menu ({error}); relying on "
+              "the Mac's automatic listener to claim the advertising phone")
+        return False
     time.sleep(2)
     # The button comes from the accessibility API, not from a coordinate: the
     # sheet re-lays out as its state changes (measured 2026-09-05, the text
@@ -491,8 +518,10 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
         return {"scenario": "from scratch", "steps": steps,
                 "drove_to_the_end": False}
 
-    open_add_iphone(mac_process)
-    note("opened Add iPhone on the Mac", True)
+    opened = open_add_iphone(mac_process)
+    note("opened Add iPhone on the Mac" if opened else
+         "Add iPhone unavailable here; the Mac's automatic listener claims the "
+         "advertising phone on its own", True)
 
     found = phone.wait_for(ID_CARD, budget)
     note("the phone found the Mac", found,
@@ -567,8 +596,10 @@ def scenario_existing_house_new_phone(phone: Phone, mac_process: str, budget: fl
         return {"scenario": "existing house, new phone", "steps": steps,
                 "drove_to_the_end": False}
 
-    open_add_iphone(mac_process)
-    note("opened Add iPhone on the Mac", True)
+    opened = open_add_iphone(mac_process)
+    note("opened Add iPhone on the Mac" if opened else
+         "Add iPhone unavailable here; the Mac's automatic listener claims the "
+         "advertising phone on its own", True)
 
     found = phone.wait_for(ID_CARD, budget)
     note("the phone found the Mac", found,
@@ -596,9 +627,58 @@ def scenario_existing_house_new_phone(phone: Phone, mac_process: str, budget: fl
     note("the phone left the card without owner approval", left_card,
          "" if left_card else "still on the card — the phone is waiting for an "
          "owner who cannot answer")
+    if not left_card:
+        return {"scenario": "existing house, new phone", "steps": steps,
+                "drove_to_the_end": False}
+
+    # Presence is not a pane. The connection is only worth something if a
+    # shell on the Mac takes keystrokes from this phone, so the phone opens a
+    # terminal and types a command whose effect is visible on the Mac's disk.
+    marker = pane_marker_path()
+    opened = phone.wait_for(ID_PAIRED_CONTINUE, 20) and phone.tap(ID_PAIRED_CONTINUE)
+    note("tapped 'Open a terminal' on the celebration", opened)
+    terminal = phone.wait_for(ID_TERMINAL_VIEW, 20)
+    if not terminal and phone.wait_for(ID_HOME_NEW_SESSION, 5):
+        phone.tap(ID_HOME_NEW_SESSION)
+        note("home showed instead; tapped New session", True)
+        terminal = phone.wait_for(ID_TERMINAL_VIEW, 20)
+    note("a terminal view opened on the phone", terminal,
+         "" if terminal else "no terminal within budget — open/attach did not "
+         "complete, whatever presence said")
+    if not terminal:
+        return {"scenario": "existing house, new phone", "steps": steps,
+                "drove_to_the_end": False}
+    typed = False
+    try:
+        phone.tap(ID_TERMINAL_VIEW)
+        time.sleep(1.5)                         # the shell prompt, the keyboard
+        phone.type_keys(f"touch {marker}\n")
+        typed = True
+    except DriveError as error:
+        note("typed into the pane", False, str(error))
+    else:
+        note("typed into the pane", True, f"touch {marker}")
+    landed = False
+    deadline = time.monotonic() + 30
+    while typed and time.monotonic() < deadline:
+        if os.path.exists(marker):
+            landed = True
+            break
+        time.sleep(1)
+    note("the Mac's shell created the file the phone asked for", landed,
+         marker if landed else f"{marker} never appeared — keystrokes did not "
+         "reach a shell on this Mac")
 
     return {"scenario": "existing house, new phone", "steps": steps,
-            "drove_to_the_end": tapped and left_card}
+            "drove_to_the_end": tapped and left_card and terminal and landed,
+            "pane_marker": marker}
+
+
+def pane_marker_path() -> str:
+    """A path only this run knows, in a directory any shell can write."""
+    directory = "/private/tmp/soyeht-e2e"
+    os.makedirs(directory, exist_ok=True)
+    return os.path.join(directory, f"pane-{int(time.time())}-{os.getpid()}.marker")
 
 
 SCENARIOS = {"from-scratch": scenario_from_scratch,
