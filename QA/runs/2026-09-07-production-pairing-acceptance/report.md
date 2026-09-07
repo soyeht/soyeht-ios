@@ -188,11 +188,49 @@ VPN navigation on the dedicated test phone reached the selected Tailscale
 configuration, showing both VPN Connected and Connect On Demand enabled. No
 preference was changed during this navigation. The controls are reachable;
 absence from the first Settings viewport was not a demonstrated restriction.
-The actual disconnected-network run and restoration must still be observed.
+### VPN-off discovery exposed another product refusal
 
-Deliberate LAN-only operation, fresh-command reconnect, retained-keychain upgrade
-and TestFlight installation remain **NOT RUN or awaiting evidence**. Do not
-infer their results from this comparison.
+The later 17:56:22–17:57:45 run began with VPN **Not Connected** and Connect On
+Demand disabled, read from the two separate Settings pages. Both were still off
+after the run. The exact selected profile was retained. Restoring the settings
+required navigating again from the Settings root; the initial automated restore
+refused the unexpected page. The final readback confirmed Connect On Demand=1
+and VPN Connected=1. Raw screenshots and timestamped state observations remain
+local. An earlier attempt without these observations does not establish VPN
+state, and its address advertisements cannot substitute for that measurement.
+
+The corrected owner-approval build (`57b2f54b`) generated a fresh phone identity
+at 17:56:28.413. The Mac issued its local credential to that identity nine times;
+the phone received nine existing-house claims containing that credential. Each
+was refused with `pairing.failed stage=discovery` and
+`PairingAddressError.noReachableAddress`. The card never appeared, no fresh
+presence handshake occurred, and the driver did not complete. The 17:56:24
+handshake predates the reset and belongs to the previous identity.
+
+This is an observed **product refusal before Connect**, despite the driver's
+incomplete result. It is not a failed attempt to press a visible Connect button.
+Household snapshots are unchanged. It does not establish successful Wi-Fi-only
+pairing or terminal use.
+
+Code review traced the refusal to the discovery callback selecting an HTTP
+`addDevice` route before distinguishing Mac-local confirmation. The latter uses
+the separately supplied presence/attach credential and does not enroll the
+phone in the household. A missing eligible engine route therefore blocks a
+different operation. The correction is being developed separately; a proposed
+change or a unit test will not change this physical result into a pass.
+
+| Local evidence | SHA-256 |
+| --- | --- |
+| VPN-off transcript | `aebc720c89516d4d70294f3e107f25d9e2356e20d76eebe331de5218cd5006a1` |
+| Orchestrator run record | `dde1550145cb33671ef0bb63f1dd91c52d4117c33345e2660b9e02fd993e41e0` |
+| VPN state before driver | `241ca6913ce1318ba50370dfc22ac6bf769361cd5f1573622bb320fa17f994c0` |
+| VPN state after driver | `61f0491b1a6746c9b2be50eca24b50411cc38152936425d9033bc8058d07c620` |
+| Baseline restored | `5e10e7cad5e748c5576020b6b73a5b94f3eafda9e57d62a388b4fd9a9fdc78c1` |
+
+Deliberate Wi-Fi-only pairing is now **FAILED in the observed discovery path**.
+Fresh-command reconnect, retained-keychain upgrade and TestFlight installation
+remain **NOT RUN or awaiting evidence**. Do not infer their results from this
+comparison.
 
 See [the acceptance procedure](../../domains/production-pairing-acceptance.md)
 for evidence requirements and the laboratory/distribution limitations. No
