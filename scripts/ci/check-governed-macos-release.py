@@ -271,20 +271,67 @@ def validate_embedded_engine(product_root: Path) -> None:
 
     So this asks the binary, and only the binary.
     """
-    engine = product_root / "Soyeht.app" / "Contents" / "Helpers" / "theyos-engine"
-    if not engine.exists():
-        # A staging tree that is not an app bundle (the DMG scan covers that
-        # shape) has nothing to check here.
-        alternative = product_root / "Contents" / "Helpers" / "theyos-engine"
-        if not alternative.exists():
-            return
-        engine = alternative
+    for engine in embedded_engines(product_root):
+        validate_one_embedded_engine(engine)
+
+
+def validate_one_embedded_engine(engine: Path) -> None:
     reported = embedded_engine_version(engine)
     require(
         reported == ENGINE_RELEASE_VERSION,
         f"the engine inside the product announces {reported}, but this release pins "
         f"{ENGINE_RELEASE_VERSION}; a Mac on this build would judge its own engine "
         f"stale at every launch and offer a session-destroying restart that changes nothing",
+    )
+    validate_engine_receipt(engine)
+
+
+def validate_engine_receipt(engine: Path) -> None:
+    """The receipt shipped beside the engine must describe THAT engine.
+
+    WHY THIS EXISTS. `mac-v0.1.49` shipped a receipt bound to a binary that no
+    longer existed in the bundle. `embed-engine.sh` rebinds the receipt during
+    the build; `build-dmg.sh` then re-signs every helper, which rewrites the
+    file. Measured across the failing build: the archive at `e413cfc4…` matching
+    its receipt, and the signed product at `937d9597…` against that same
+    unchanged receipt.
+
+    Not an ad-hoc-to-real transition: the archive's engine already carried the
+    Developer ID identity, and signing it again with the SAME identity still
+    changed the bytes. Codesign is not reproducible, so the digest must be
+    re-measured after the last signature rather than assumed to survive it.
+
+    The cost is the release's own headline. `EnginePackager.validatedArtifact`
+    compares that sha before anything else, so `validatedBundledArtifact()`
+    threw `incompatiblePackage` and the engine migration — the reason 0.1.49
+    exists — would have refused its own package on every installation.
+
+    It is the same shape as the defect above and the reason that one is
+    documented: the pin, the checksum, the floor and the receipt are all TEXT,
+    and text agreeing with text proves nothing about the bytes that ship. The
+    Dev bench never saw it because an ad-hoc build never re-signs.
+
+    Delegated to `scripts/engine-artifact-receipt.py` on purpose: one Mach-O
+    reader, already calibrated, rather than a second parser that can drift.
+    """
+    receipt = engine.parent.parent / "Resources" / "Engine" / "engine-build-info.json"
+    require(
+        receipt.is_file(),
+        f"the product ships an engine with no artifact receipt beside it: {receipt}",
+    )
+    checker = REPO_ROOT / "scripts" / "engine-artifact-receipt.py"
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(checker), str(engine), str(receipt)],
+            capture_output=True, text=True, timeout=120, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ContractError(f"cannot validate the shipped engine receipt: {error}") from error
+    require(
+        completed.returncode == 0,
+        "the shipped engine receipt does not describe the engine shipped beside it "
+        f"({(completed.stderr or completed.stdout).strip() or 'no message'}); the Mac "
+        "installer refuses this package and the engine migration never runs",
     )
 
 
@@ -1242,6 +1289,179 @@ def run_dispatch_injection_control(snapshot: Mapping[str, str]) -> None:
                 "direct-interpolation control did not execute the adversarial payload")
 
 
+def synthetic_engine_image(uuid_bytes: bytes) -> bytes:
+    """A minimal thin arm64 Mach-O executable carrying exactly one LC_UUID.
+
+    Built rather than copied so the controls stay fast and hermetic: the real
+    engine is 42 MB, and a control that takes a second to hash is a control
+    people switch off.
+    """
+    import struct
+    commands = struct.pack("<II", 0x1B, 24) + uuid_bytes
+    header = struct.pack("<8I", 0xFEEDFACF, 0x0100000C, 0, 2, 1, len(commands), 0, 0)
+    return header + commands
+
+
+def write_engine_product(root: Path, *, app: str = "Soyeht.app", uuid_hex: str = "0" * 32,
+                         receipt: dict | None = None, engine_suffix: bytes = b"") -> Path:
+    """A product tree shaped like the real one, down to the receipt location."""
+    import hashlib
+
+    helpers = root / app / "Contents" / "Helpers"
+    helpers.mkdir(parents=True, exist_ok=True)
+    engine = helpers / "theyos-engine"
+    engine.write_bytes(synthetic_engine_image(bytes.fromhex(uuid_hex)) + engine_suffix)
+    receipt_path = root / app / "Contents" / "Resources" / "Engine" / "engine-build-info.json"
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    if receipt is None:
+        receipt = {
+            "artifact": {
+                "git_sha": "0" * 40,
+                "image_uuid": uuid_hex,
+                "pty_supervisor_protocol": 2,
+                "version": ENGINE_RELEASE_VERSION,
+            },
+            "executable_sha256": hashlib.sha256(engine.read_bytes()).hexdigest(),
+        }
+    receipt_path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
+    return engine
+
+
+def run_engine_receipt_controls() -> int:
+    """Prove the receipt guard can still fail, and on the shapes that shipped.
+
+    Case 2 is `mac-v0.1.49` itself: bytes changed by re-signing, UUID
+    untouched, receipt left behind. A guard that only compared the UUID would
+    have passed that build — which is why the digest is the check and the UUID
+    is the companion, not the substitute.
+    """
+    import hashlib
+
+    passed = 0
+    with tempfile.TemporaryDirectory(prefix="governed-engine-receipt-") as directory:
+        fixture = Path(directory)
+
+        good = fixture / "good"
+        write_engine_product(good, uuid_hex="1" * 32)
+        validate_engine_receipts_only(good)
+        passed += 1
+        print("  ok  a product whose receipt describes its engine passes")
+
+        cases: tuple[tuple[str, Callable[[Path], None], str], ...] = (
+            (
+                "resigned-engine-stale-receipt",
+                lambda root: write_engine_product(
+                    root, uuid_hex="2" * 32, engine_suffix=b"signature blob\n",
+                    receipt={
+                        "artifact": {"git_sha": "0" * 40, "image_uuid": "2" * 32,
+                                     "pty_supervisor_protocol": 2,
+                                     "version": ENGINE_RELEASE_VERSION},
+                        "executable_sha256": hashlib.sha256(
+                            synthetic_engine_image(bytes.fromhex("2" * 32))).hexdigest(),
+                    }),
+                "bytes changed by re-signing, same UUID, receipt left behind",
+            ),
+            (
+                "missing-receipt",
+                lambda root: (write_engine_product(root, uuid_hex="3" * 32),
+                              (root / "Soyeht.app/Contents/Resources/Engine/engine-build-info.json").unlink()),
+                "engine shipped with no receipt at all",
+            ),
+            (
+                "receipt-of-another-image",
+                lambda root: write_engine_product(
+                    root, uuid_hex="4" * 32,
+                    receipt={
+                        "artifact": {"git_sha": "0" * 40, "image_uuid": "5" * 32,
+                                     "pty_supervisor_protocol": 2,
+                                     "version": ENGINE_RELEASE_VERSION},
+                        "executable_sha256": hashlib.sha256(
+                            synthetic_engine_image(bytes.fromhex("4" * 32))).hexdigest(),
+                    }),
+                "receipt names a different linked image",
+            ),
+            (
+                "companion-app-unchecked",
+                lambda root: (write_engine_product(root, uuid_hex="6" * 32),
+                              write_engine_product(
+                                  root, app="Uninstall Soyeht.app", uuid_hex="7" * 32,
+                                  engine_suffix=b"drifted\n",
+                                  receipt={
+                                      "artifact": {"git_sha": "0" * 40, "image_uuid": "7" * 32,
+                                                   "pty_supervisor_protocol": 2,
+                                                   "version": ENGINE_RELEASE_VERSION},
+                                      "executable_sha256": hashlib.sha256(
+                                          synthetic_engine_image(bytes.fromhex("7" * 32))).hexdigest(),
+                                  })),
+                "the SECOND app in the DMG carries the stale receipt",
+            ),
+            (
+                "launch-agent-without-engine",
+                lambda root: (root / "Soyeht.app/Contents/Library/LaunchAgents/com.soyeht.engine.plist")
+                    .parent.mkdir(parents=True, exist_ok=True)
+                    or (root / "Soyeht.app/Contents/Library/LaunchAgents/com.soyeht.engine.plist")
+                    .write_text("<plist/>\n"),
+                "the LaunchAgent is installed with no engine and no receipt",
+            ),
+        )
+
+        for index, (name, build, why) in enumerate(cases):
+            root = fixture / f"case-{index}"
+            root.mkdir()
+            build(root)
+            try:
+                validate_engine_receipts_only(root)
+            except ContractError:
+                passed += 1
+                print(f"  ok  refused: {name} — {why}")
+                continue
+            raise ContractError(f"engine receipt control survived: {name} — {why}")
+
+    print(f"engine receipt controls: {passed}/{1 + len(cases)} shapes judged correctly")
+    return passed
+
+
+def validate_engine_receipts_only(product_root: Path) -> None:
+    """The receipt half of the product scan, without running any binary.
+
+    Separated so the controls can exercise it against synthetic Mach-O images:
+    `validate_one_embedded_engine` also EXECUTES the engine to read its version,
+    which a fixture cannot do and should not have to.
+    """
+    for engine in embedded_engines(product_root):
+        validate_engine_receipt(engine)
+
+
+def embedded_engines(product_root: Path) -> list[Path]:
+    """Every engine this product ships — and a refusal when it ships none.
+
+    EVERY app bundle in the tree, not just the one named `Soyeht.app`: the DMG
+    stages a companion app beside it, and a check that knows one filename says
+    nothing about the other.
+
+    An app that installs the engine LaunchAgent while shipping no engine is a
+    product with the feature removed, not a tree with nothing to say. Returning
+    silently there is how a missing engine AND a missing receipt would both
+    read as "clean" — the failure mode this whole file exists to refuse.
+    """
+    engines = [
+        candidate
+        for candidate in sorted(product_root.glob("*.app/Contents/Helpers/theyos-engine"))
+        if candidate.is_file()
+    ]
+    direct = product_root / "Contents" / "Helpers" / "theyos-engine"
+    if direct.is_file():
+        engines.append(direct)
+    if not engines:
+        for agent in sorted(product_root.glob("*.app/Contents/Library/LaunchAgents/com.soyeht.engine.plist")):
+            raise ContractError(
+                f"{agent.parents[3].name} installs the engine LaunchAgent but ships no "
+                "theyos-engine: the product would register a service with nothing to run"
+            )
+        # A staging tree that is not an app bundle has nothing to check here.
+    return engines
+
+
 def run_product_scan_controls() -> int:
     """Exercise clean and adversarial product trees through the real scanner."""
 
@@ -1447,6 +1667,7 @@ def run_self_tests(snapshot: Mapping[str, str]) -> int:
         raise ContractError(f"self-test mutant survived: {mutant.name}")
     run_dispatch_injection_control(snapshot)
     run_product_scan_controls()
+    run_engine_receipt_controls()
     run_engine_artifact_controls(snapshot)
     print(f"governed macOS release contract: {passed}/{len(mutants())} mutants rejected")
     return passed
