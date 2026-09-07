@@ -253,6 +253,7 @@
 		7F4C8F6FB25C54145A7B62EF /* PTYSupervisorInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 486498B07A3E671A1C1766D9 /* PTYSupervisorInstallation.swift */; };
 		A64B0B1C5D0415B3106654CD /* PTYSupervisorInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */; };
 		F70174C3C8B3A302B5679561 /* EngineRuntimeReadback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D731A5B59119DC8BF43E99C /* EngineRuntimeReadback.swift */; };
+		60D3B17035F98B4890EE71CF /* EngineProcessIncarnation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAE75BBE1E3BB508202FD77 /* EngineProcessIncarnation.swift */; };
 		F88F21B2D3945BB0D7F97A46 /* EngineLifecycleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F3DB8021F35AC92D1C5F01 /* EngineLifecycleService.swift */; };
 /* End PBXBuildFile section */
 
@@ -508,6 +509,7 @@
 		486498B07A3E671A1C1766D9 /* PTYSupervisorInstallation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PTYSupervisorInstallation.swift; sourceTree = "<group>"; };
 		51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PTYSupervisorInstaller.swift; sourceTree = "<group>"; };
 		3D731A5B59119DC8BF43E99C /* EngineRuntimeReadback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineRuntimeReadback.swift; sourceTree = "<group>"; };
+		4BAE75BBE1E3BB508202FD77 /* EngineProcessIncarnation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineProcessIncarnation.swift; sourceTree = "<group>"; };
 		F8F3DB8021F35AC92D1C5F01 /* EngineLifecycleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineLifecycleService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -565,6 +567,7 @@
 				EE10004C0000000000000002 /* EngineBackgroundAgent.swift */,
 				51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */,
 				3D731A5B59119DC8BF43E99C /* EngineRuntimeReadback.swift */,
+				4BAE75BBE1E3BB508202FD77 /* EngineProcessIncarnation.swift */,
 				F8F3DB8021F35AC92D1C5F01 /* EngineLifecycleService.swift */,
 				486498B07A3E671A1C1766D9 /* PTYSupervisorInstallation.swift */,
 				E2E1BF30674B074C302D508C /* LaunchdJobSnapshot.swift */,
@@ -1422,6 +1425,7 @@
 				EE10004C0000000000000001 /* EngineBackgroundAgent.swift in Sources */,
 				A64B0B1C5D0415B3106654CD /* PTYSupervisorInstaller.swift in Sources */,
 				F70174C3C8B3A302B5679561 /* EngineRuntimeReadback.swift in Sources */,
+				60D3B17035F98B4890EE71CF /* EngineProcessIncarnation.swift in Sources */,
 				F88F21B2D3945BB0D7F97A46 /* EngineLifecycleService.swift in Sources */,
 				7F4C8F6FB25C54145A7B62EF /* PTYSupervisorInstallation.swift in Sources */,
 				DECAB7CF80EFC142CEEE2F40 /* LaunchdJobSnapshot.swift in Sources */,
