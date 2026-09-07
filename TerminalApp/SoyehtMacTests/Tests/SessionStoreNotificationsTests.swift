@@ -72,6 +72,7 @@ final class SessionStoreNotificationsTests: XCTestCase {
         defaults.removePersistentDomain(forName: "com.soyeht.tests.sessionStore.\(id)")
         return SessionStore(
             defaults: defaults,
+            credentialStorage: TestCredentialStorage(),
             keychainService: "com.soyeht.mobile.tests.sessionStore.\(id)"
         )
     }

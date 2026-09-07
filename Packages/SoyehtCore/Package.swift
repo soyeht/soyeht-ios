@@ -44,6 +44,7 @@ let package = Package(
             ],
             path: "Sources/SoyehtCore",
             resources: [
+                .copy("Resources/embedded-engine-helpers.json"),
                 .copy("Resources/Fonts"),
                 .copy("Resources/Wordlists"),
                 .copy("Resources/Sounds/house-created.caf"),

@@ -99,6 +99,15 @@ final class MainMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
         }
     }
 
+    @IBAction func resumeEngineUpdate(_ sender: Any?) {
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) {
+                EngineLifecycleService.run(resume: true)
+            }.value
+            EngineUpdateWindowController.present(outcome)
+        }
+    }
+
     @IBAction func closeActiveWorkspace(_ sender: Any?) {
         actionHandler?.closeActiveWorkspace(sender)
     }

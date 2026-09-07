@@ -121,7 +121,7 @@ final class MacActiveServerContextResolverTests: XCTestCase {
         let suite = "com.soyeht.tests.mac-active-resolver.\(UUID().uuidString)"
         let keychain = "com.soyeht.tests.mac-active-resolver.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
-        let session = SessionStore(defaults: defaults, keychainService: keychain)
+        let session = SessionStore(defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: keychain)
         return (session, defaults, { defaults.removePersistentDomain(forName: suite) })
     }
 

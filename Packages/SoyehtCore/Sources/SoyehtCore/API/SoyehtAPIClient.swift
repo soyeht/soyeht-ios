@@ -567,9 +567,14 @@ public final class SoyehtAPIClient {
     // MARK: - Workspaces
 
     public func listWorkspaces(container: String) async throws -> [SoyehtWorkspace] {
+        guard let context = store.currentContext() else { throw APIError.noSession }
+        return try await listWorkspaces(container: container, context: context)
+    }
+
+    public func listWorkspaces(container: String, context: ServerContext) async throws -> [SoyehtWorkspace] {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(
-                path: "/api/v1/terminals/\(container)/workspaces"
+                path: "/api/v1/terminals/\(container)/workspaces", context: context
             )
         }
         try checkResponse(response, data: data)
@@ -646,19 +651,22 @@ public final class SoyehtAPIClient {
     // MARK: - Workspace
 
     public func createWorkspace(container: String, session sessionName: String? = nil) async throws -> WorkspaceResponse {
-        guard let host = store.apiHost else { throw APIError.noSession }
+        guard let context = store.currentContext() else { throw APIError.noSession }
+        return try await createWorkspace(container: container, session: sessionName, context: context)
+    }
 
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspace")
+    /// The server chosen during listing remains the destination for creation.
+    /// Do not retry this POST automatically: a lost response can hide execution.
+    public func createWorkspace(container: String, session sessionName: String? = nil,
+                                context: ServerContext) async throws -> WorkspaceResponse {
+        let body = try sessionName.map { try JSONEncoder().encode(["session": $0]) }
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/workspace")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        try applyServerAuth(&request)
+        context.server.kind.applyAuth(to: &request, token: context.token)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        if let sessionName {
-            request.httpBody = try JSONEncoder().encode(["session": sessionName])
-        }
-
+        request.httpBody = body
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         return try decoder.decode(WorkspaceResponse.self, from: data)

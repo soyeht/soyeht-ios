@@ -116,15 +116,18 @@ struct InstallProgressView: View {
         do {
             try Task.checkCancellation()
 
-            try await Task.detached(priority: .userInitiated) {
-                try EnginePackager.install()
+            let outcome = await Task.detached(priority: .userInitiated) {
+                EngineLifecycleService.run(resume: true)
             }.value
-            advance()
-
-            try await Task.detached(priority: .userInitiated) {
-                try SMAppServiceInstaller.register()
-            }.value
-            advance()
+            switch outcome {
+            case .readyWithContinuity, .readyNoReplacement, .readyAfterSupervisorRestart, .readyAfterLegacyMigration:
+                completedSteps = 2
+            case .legacyMigrationRequired, .unconfirmed:
+                EngineUpdateWindowController.present(outcome) { retryInstall() }
+                completedSteps = 0
+                errorMessage = LocalizedStringResource("engineLifecycle.onboardingPending", defaultValue: "Complete or resume the engine update, then continue setup.")
+                return
+            }
 
             _ = try await HealthCheckPoller(client: Self.boundedStatusClient()).pollUntilReady()
             advance()

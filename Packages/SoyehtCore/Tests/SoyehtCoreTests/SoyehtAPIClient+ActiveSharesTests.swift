@@ -77,7 +77,7 @@ struct ActiveSharesClientTests {
     return SoyehtAPIClient(
       session: URLSession(configuration: config),
       store: SessionStore(
-        defaults: defaults, keychainService: "ActiveSharesClientTests.\(UUID().uuidString)"),
+        defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: "ActiveSharesClientTests.\(UUID().uuidString)"),
       householdSessionStore: householdStore,
       ownerIdentityKeyProvider: ActiveSharesOwnerKeyProvider(key: ownerKey),
       now: { Date(timeIntervalSince1970: 1_714_972_800) }

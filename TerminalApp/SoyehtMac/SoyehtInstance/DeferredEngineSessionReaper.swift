@@ -17,8 +17,8 @@ import os
 ///   the real teardown (TTY-map removal + engine `DELETE`).
 /// - On app quit, pending reaps are simply abandoned (the process exits) —
 ///   quitting must never tear down engine sessions (persistent-panes A4), so a
-///   still-pending session lingers as an engine orphan the session cap
-///   reclaims, rather than being force-deleted on the way out.
+///   still-pending session remains available for reattachment. Capacity
+///   pressure never authorizes killing a live supervised session.
 ///
 /// Keyed by `engineConversationID` (the broker's stable id), so a new pane
 /// adopting the same conversation cancels exactly the right pending reap.
@@ -56,7 +56,8 @@ enum DeferredEngineSessionReaper {
     /// Schedule the real teardown after the undo window. Replaces a still
     /// reversible timer for the same id, but never loses the handle to a
     /// DELETE that already crossed its commit boundary.
-    static func scheduleReap(engineConversationID: String, paneID: Conversation.ID) {
+    static func scheduleReap(engineConversationID: String, paneID: Conversation.ID, sessionInstanceID: String? = nil, creationIntentID: String? = nil) {
+        let expectedNonce = PaneStatusTracker.shared.launchOwnershipNonce(for: paneID)
         if let existing = pending[engineConversationID] {
             guard !existing.state.committed else {
                 logger.info("reap already committed; preserving in-flight owner pane=\(engineConversationID, privacy: .public)")
@@ -77,6 +78,9 @@ enum DeferredEngineSessionReaper {
             let result = await Self.performReap(
                 engineConversationID: engineConversationID,
                 paneID: paneID,
+                sessionInstanceID: sessionInstanceID,
+                creationIntentID: creationIntentID,
+                expectedNonce: expectedNonce,
                 onCommit: { state.committed = true }
             )
             state.result = result
@@ -109,8 +113,11 @@ enum DeferredEngineSessionReaper {
     @discardableResult
     static func reapNow(
         engineConversationID: String,
-        paneID: Conversation.ID
+        paneID: Conversation.ID,
+        sessionInstanceID: String? = nil,
+        creationIntentID: String? = nil
     ) async -> Bool {
+        let expectedNonce = PaneStatusTracker.shared.launchOwnershipNonce(for: paneID)
         if let committedResult = await settlePendingReapBeforeReuse(
             engineConversationID: engineConversationID
         ) {
@@ -119,6 +126,9 @@ enum DeferredEngineSessionReaper {
         return await Self.performReap(
             engineConversationID: engineConversationID,
             paneID: paneID,
+            sessionInstanceID: sessionInstanceID,
+            creationIntentID: creationIntentID,
+            expectedNonce: expectedNonce,
             onCommit: {}
         )
     }
@@ -147,6 +157,9 @@ enum DeferredEngineSessionReaper {
     private static func performReap(
         engineConversationID: String,
         paneID: Conversation.ID,
+        sessionInstanceID: String?,
+        creationIntentID: String?,
+        expectedNonce: String?,
         onCommit: () -> Void
     ) async -> Bool {
         let previousNonce = PaneStatusTracker.shared.launchOwnershipNonce(for: paneID)
@@ -159,6 +172,10 @@ enum DeferredEngineSessionReaper {
         // window can still resolve it.
         guard let context = await LocalEngineContext.resolve() else {
             logger.warning("reap: no local engine context; leaving session orphaned pane=\(engineConversationID, privacy: .public)")
+            return false
+        }
+        guard PaneStatusTracker.shared.launchOwnershipNonce(for: paneID) == expectedNonce else {
+            logger.warning("reap refused because launch ownership changed")
             return false
         }
         // A ⌘Z that arrived during the sleep or the resolve above cancelled this
@@ -177,7 +194,13 @@ enum DeferredEngineSessionReaper {
         }
         EngineSessionTTYRegistry.remove(conversationID: engineConversationID)
         do {
-            try await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)
+            if sessionInstanceID == nil, let creationIntentID {
+                // GET returning 404 cannot rule out an in-flight CREATE.
+                // Reserve its cancellation atomically at the owning broker.
+                try await SoyehtAPIClient.shared.cancelLocalTerminalCreate(conversationId: engineConversationID, intentId: creationIntentID, context: context)
+            } else {
+                try await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, sessionInstanceId: sessionInstanceID, context: context)
+            }
             logger.info("engine session reaped pane=\(engineConversationID, privacy: .public)")
             return true
         } catch {

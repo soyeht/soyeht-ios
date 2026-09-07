@@ -255,6 +255,7 @@ public final class SessionStore: ObservableObject {
     public var onServersDidChange: (@Sendable () -> Void)?
 
     private let keychainService: String
+    private let credentialStorage: (any HouseholdSecureStoring)?
     private let keychainTokenKey = "session_token"
     private let keychainServerTokensKey = "server_tokens"
     private let defaults: UserDefaults
@@ -278,11 +279,13 @@ public final class SessionStore: ObservableObject {
 
     public init(
         defaults: UserDefaults = .standard,
+        credentialStorage: (any HouseholdSecureStoring)? = nil,
         keychainService: String = SoyehtInstallProfile.current.mobileKeychainService,
         serverStore: ServerStore? = nil
     ) {
         self.defaults = defaults
         self.keychainService = keychainService
+        self.credentialStorage = credentialStorage
         self.inventoryWriter = ServerInventoryWriter(store: serverStore ?? ServerStore(defaults: defaults))
         migrateIfNeeded()
     }
@@ -922,6 +925,12 @@ public final class SessionStore: ObservableObject {
     private func saveToKeychain(key: String, value: String) {
         withStorageLock {
             guard let data = value.data(using: .utf8) else { return }
+            if let credentialStorage {
+                if !credentialStorage.save(data, account: key) {
+                    sessionStoreLogger.error("Credential storage replacement failed")
+                }
+                return
+            }
             let baseQuery = keychainBaseQuery(key: key)
             // Atomic update path: SecItemUpdate replaces the value in a single
             // call, so a crash or termination cannot leave the keychain with
@@ -959,6 +968,10 @@ public final class SessionStore: ObservableObject {
 
     private func loadFromKeychain(key: String) -> String? {
         withStorageLock {
+            if let credentialStorage {
+                guard let data = credentialStorage.load(account: key) else { return nil }
+                return String(data: data, encoding: .utf8)
+            }
             var query = keychainBaseQuery(key: key)
             query[kSecReturnData as String] = true
             query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -971,6 +984,10 @@ public final class SessionStore: ObservableObject {
 
     private func deleteFromKeychain(key: String) {
         withStorageLock {
+            if let credentialStorage {
+                credentialStorage.delete(account: key)
+                return
+            }
             let query = keychainBaseQuery(key: key)
             SecItemDelete(query as CFDictionary)
         }

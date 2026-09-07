@@ -1386,6 +1386,7 @@ struct ClawSetupViewModelInjectedServersTests {
         let serverStore = ServerStore(defaults: defaults)
         let store = SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "com.soyeht.tests.clawsetup.\(UUID().uuidString)",
             serverStore: serverStore
         )
@@ -1682,6 +1683,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.success")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.success.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
@@ -1734,6 +1736,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.list")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.list.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
@@ -1783,6 +1786,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.union")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.union.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
@@ -1843,6 +1847,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.notFound")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.notFound.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
@@ -1901,6 +1906,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.transient")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.transient.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
@@ -1959,6 +1965,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.listTransient")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.listTransient.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)
@@ -2009,6 +2016,7 @@ struct HouseholdCreatedInstancesLoaderTests {
         let defaults = makeDefaults("HouseholdCreatedInstancesLoaderTests.context")
         let sessionStore = SoyehtCore.SessionStore(
             defaults: defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "HouseholdCreatedInstancesLoaderTests.context.\(UUID().uuidString)"
         )
         let recordStore = HouseholdCreatedInstancesStore(defaults: defaults)

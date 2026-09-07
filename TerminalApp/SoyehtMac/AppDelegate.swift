@@ -258,67 +258,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
 
     // MARK: - Engine freshness guard
 
-    /// Fetches the running engine's version from `/bootstrap/status` and
-    /// restarts the LaunchAgent when `EngineStalenessPolicy` returns a
-    /// provable `.stale` verdict. Fire-and-forget: a fetch failure (engine
-    /// down, still initializing) changes nothing — the reconciler owns
-    /// registration repair, and an absent answer is not a stale engine.
-    private func verifyRunningEngineFreshness() {
-        Task.detached(priority: .utility) {
-            guard let status = try? await BootstrapStatusClient(
-                baseURL: TheyOSEnvironment.bootstrapBaseURL
-            ).fetch() else { return }
-            let verdict = EngineStalenessPolicy.verdict(
-                runningEngineVersion: status.engineVersion,
-                expectedEngineVersion: EngineCompat.minSupportedEngineVersion
-            )
-            guard verdict == .stale else { return }
-            // A restart only helps once the newer binary is staged. Nothing
-            // else refreshes ~/Library/Application Support/<profile>/engine on
-            // a set-up Mac — the onboarding installer is the only other
-            // caller — so before this step every launch bounced the same old
-            // engine, killed its PTYs, and changed nothing (the 0.1.27
-            // owner-events mode regression shipped inside exactly that gap).
-            do {
-                try EnginePackager.install()
-            } catch {
-                NSLog(
-                    "engine %@ is older than the required %@ but staging the bundled engine failed (%@); leaving the running engine alone",
-                    status.engineVersion, EngineCompat.minSupportedEngineVersion,
-                    String(describing: error)
-                )
-                return
-            }
-            // Staged is not restarted. The engine outlives the app so that an
-            // update never costs a session; an engine update is the one step
-            // that cannot keep that promise, because every brokered PTY is the
-            // engine's child. Measured 2026-09-03: the update to 0.1.45 bounced
-            // the 0.1.27 engine one second after relaunch and took eight agent
-            // sessions with it. So launch restarts only over nothing, and with
-            // sessions alive it hands the decision to the person.
-            let liveSessions = SMAppServiceInstaller.liveBrokeredSessionCount
-            switch EngineServiceReconciler.staleEngineAction(liveSessionCount: liveSessions) {
-            case .restartNow:
-                NSLog(
-                    "engine %@ is older than the required %@ and nothing is attached to it; staged the bundled engine and restarting the LaunchAgent",
-                    status.engineVersion, EngineCompat.minSupportedEngineVersion
-                )
-                SMAppServiceInstaller.restartStaleEngine()
-            case .holdForPerson(let liveSessionCount):
-                NSLog(
-                    "engine %@ is older than the required %@; staged the bundled engine, but %@ session(s) are alive under it — leaving the restart to the person",
-                    status.engineVersion, EngineCompat.minSupportedEngineVersion,
-                    liveSessionCount.map(String.init) ?? "an unknown number of"
-                )
-                await MainActor.run {
-                    EngineUpdateWindowController.present(
-                        runningVersion: status.engineVersion,
-                        stagedVersion: EngineCompat.minSupportedEngineVersion,
-                        liveSessionCount: liveSessionCount
-                    )
-                }
-            }
-        }
+    /// One lifecycle path for absent, stale and pending installations. Image
+    /// identity and the engine's actual PTY owner decide readiness; a version
+    /// floor or a zero-session count cannot authorize legacy removal.
+    private func verifyRunningEngineFreshness() async -> EngineReplacementCoordinator.Outcome {
+        await Task.detached(priority: .utility) {
+            EngineLifecycleService.run(resume: false)
+        }.value
     }
 
     /// See `OwnerEventsLogRepair`. Runs synchronously: it is one `open` +
@@ -596,36 +542,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         // theyos b05d2119 on, but that engine only reaches a set-up Mac
         // through the stale-restart path below.
         repairLegacyOwnerEventsLog()
-        // Repair the engine LaunchAgent before any pane is built. A pane asks
-        // for the broker at creation time and silently falls back to an
-        // in-process PTY when it is absent — and in-process panes die with the
-        // app, so a missing job turns every future session into something an
-        // update destroys. Same `isSetUp` signal that chooses the window below,
-        // so the two cannot disagree about which phase the app is in.
-        let attention = SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
-
         if isSetUp {
-            // The LaunchAgent outlives app updates by design, and nothing
-            // compared the running process to this app's expectation: one
-            // engine served for nine days across an update and hosted the
-            // degraded TCC state behind the 2026-08-28/29 silent-EPERM
-            // incident. Ask the running engine its version and bounce the
-            // service only on a provable `.stale` verdict — an unreadable
-            // answer never authorizes destroying sessions.
-            verifyRunningEngineFreshness()
+            // Preparation and readback run off the UI thread. A pending
+            // replacement blocks new engine CREATE while existing panes may
+            // restore their exact supervised instances.
+            let outcome = await verifyRunningEngineFreshness()
             restoreMainWindowsOrOpenDefault()
-            // Shown AFTER the windows, so it lands on top of the work rather
-            // than in front of an empty screen. Reconciliation still ran first:
-            // a pane created before the broker exists is born in-process and
-            // cannot be migrated afterwards.
-            //
-            // Before this, every one of these outcomes went to the unified log
-            // and nowhere else — which is how the owner's Mac reported a
-            // missing engine on every launch for weeks while he found out by
-            // losing sessions.
-            EngineRepairWindowController.present(attention) {
-                SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)
-            }
+            EngineUpdateWindowController.present(outcome)
             return
         }
 
@@ -1694,11 +1617,8 @@ private enum DevEmbeddedEngineSmokeRunner {
 
         do {
             let bundled = try probe.validateBundledSupport()
-            try EnginePackager.install()
-            let installedHelperCount = try probe.validateInstalledSupport(
-                at: EnginePackager.engineDestinationDirectory
-            )
-            try SMAppServiceInstaller.register()
+            try await Task.detached(priority: .userInitiated) { try SMAppServiceInstaller.register() }.value
+            let installedHelperCount = try probe.validateInstalledSupport(at: EnginePackager.engineDestinationDirectory)
 
             let healthy = await TheyOSHealthProber().waitForHealthy(timeout: 30)
             guard healthy else { throw DevEmbeddedEngineSmokeError.healthTimeout }
@@ -1948,8 +1868,7 @@ private enum DevLocalAppleAttestationCaptureRunner {
         profile: SoyehtInstallProfile
     ) async {
         do {
-            try EnginePackager.install()
-            try SMAppServiceInstaller.register()
+            try await Task.detached(priority: .userInitiated) { try SMAppServiceInstaller.register() }.value
 
             let healthy = await TheyOSHealthProber().waitForHealthy(timeout: 30)
             guard healthy else { throw CaptureError.healthTimeout }

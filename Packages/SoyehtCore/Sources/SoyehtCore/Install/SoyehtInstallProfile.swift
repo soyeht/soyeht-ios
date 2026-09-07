@@ -43,6 +43,11 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
     /// `launchctl kickstart`/`bootout`. Must match the plist's `Label` exactly.
     public let engineLaunchdLabel: String
 
+    /// Independent PTY owner. Engine replacement must never address this job.
+    public var ptySupervisorLaunchdLabel: String {
+        kind == .dev ? "com.soyeht.ptyd.dev" : "com.soyeht.ptyd"
+    }
+
     /// Keychain `kSecAttrService` for the Mac's pairing secrets / identity.
     public let keychainService: String
 
@@ -183,6 +188,7 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
             dotTheyosName,
             engineLaunchAgentPlistName,
             engineLaunchdLabel,
+            ptySupervisorLaunchdLabel,
             keychainService,
             mobileKeychainService,
             householdKeychainService,

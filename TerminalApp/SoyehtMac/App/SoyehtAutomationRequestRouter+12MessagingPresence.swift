@@ -132,7 +132,7 @@ extension SoyehtAutomationRequestRouter {
         pane: PaneViewController
     ) -> String? {
         let engineConversationID: String? = {
-            if case .engineLocal(let id) = conversation.commander { return id }
+            if case .engineLocal(let id, _, _) = conversation.commander { return id }
             return nil
         }()
         return pane.terminalView.localPTYSlaveTTYPathForAutomation

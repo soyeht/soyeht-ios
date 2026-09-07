@@ -3,8 +3,7 @@ import SoyehtCore
 import os
 
 /// Result surfaced to the presenter when the user taps "Create".
-/// Phase 6 scope: pure UI + validation. Phase 7 wires this into ConversationStore +
-/// WebSocket URL building + pane binding.
+/// Keeps the selected server with the instance/session it supplied.
 struct NewConversationRequest {
     let handle: String
     let agent: AgentType
@@ -19,6 +18,7 @@ struct NewConversationRequest {
     /// Optional existing tmux sessionId to attach to. When nil the presenter
     /// calls `createWorkspace` to mint a fresh session.
     let attachSessionId: String?
+    var context: ServerContext? = nil
 }
 
 /// Modal-sheet controller for creating a new Conversation.
@@ -49,6 +49,10 @@ final class NewConversationSheetController: NSViewController {
     private let cancelButton = NSButton(title: String(localized: "common.button.cancel", comment: "Generic Cancel."), target: nil, action: nil)
 
     private var selectedPath: URL?
+    private var selectedContext: ServerContext?
+    private var loadTask: Task<Void, Never>?
+    private var sessionLoadTask: Task<Void, Never>?
+    private let retryButton = NSButton(title: String(localized: "common.button.retry"), target: nil, action: nil)
     private var instances: [SoyehtInstance] = []
     /// Sessions for the currently selected instance. First entry (tag 0) is
     /// the synthetic "Create new session" option; others are real sessionIds.
@@ -97,6 +101,9 @@ final class NewConversationSheetController: NSViewController {
         sessionPopup.lastItem?.representedObject = nil
         sessionPopup.isEnabled = false
 
+        retryButton.target = self
+        retryButton.action = #selector(retryLoading)
+        retryButton.isHidden = true
         instanceStatus.font = MacTypography.NSFonts.sheetStatus
         instanceStatus.textColor = .tertiaryLabelColor
 
@@ -135,6 +142,7 @@ final class NewConversationSheetController: NSViewController {
             instanceLabel,  instancePopup,
             sessionLabel,   sessionPopup,
             instanceStatus,
+            retryButton,
             pathLabel,      pathRow,
             worktreeCheckbox,
             actions,
@@ -159,14 +167,47 @@ final class NewConversationSheetController: NSViewController {
 
     override func viewDidAppear() {
         super.viewDidAppear()
+        NotificationCenter.default.addObserver(self, selector: #selector(engineInstallationBecameReady),
+                                               name: EngineInstallationReadiness.didBecomeReady, object: nil)
         loadInstances()
     }
 
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        loadTask?.cancel()
+        sessionLoadTask?.cancel()
+        NotificationCenter.default.removeObserver(self, name: EngineInstallationReadiness.didBecomeReady, object: nil)
+    }
+
+    @objc private func engineInstallationBecameReady() {
+        // Refresh a failed listing. Keep a valid selection bound to the
+        // server that supplied it, even when the global active server changes.
+        if !retryButton.isHidden { loadInstances() }
+    }
+
+    @objc private func retryLoading() { loadInstances() }
+
     private func loadInstances() {
-        Task { @MainActor in
+        loadTask?.cancel()
+        sessionLoadTask?.cancel()
+        retryButton.isHidden = true
+        instancePopup.isEnabled = false
+        sessionPopup.isEnabled = false
+        selectedContext = nil
+        instancePopup.removeAllItems()
+        sessionPopup.removeAllItems()
+        createButton.isEnabled = false
+        let installationGeneration = EngineInstallationReadiness.generation
+        loadTask = Task { @MainActor in
             do {
-                let list = try await SoyehtAPIClient.shared.getInstances()
+                guard let context = MacActiveServerContextResolver.activeContext() else {
+                    throw SoyehtAPIClient.LocalTerminalFailure.unavailable
+                }
+                let list = try await SoyehtAPIClient.shared.getInstances(context: context)
+                guard !Task.isCancelled else { return }
+                self.selectedContext = context
                 self.instances = list.filter { $0.isOnline }
+                self.createButton.isEnabled = !self.instances.isEmpty
                 self.instancePopup.removeAllItems()
                 if self.instances.isEmpty {
                     self.instancePopup.addItem(withTitle: String(localized: "newconv.instance.noneAvailable", comment: "Picker item shown when the server returned zero online instances."))
@@ -183,6 +224,14 @@ final class NewConversationSheetController: NSViewController {
                     self.loadSessions(for: self.instances[0].container)
                 }
             } catch {
+                guard !Task.isCancelled else { return }
+                if installationGeneration != EngineInstallationReadiness.generation {
+                    loadInstances()
+                    return
+                }
+                let failure = error as NSError
+                Self.logger.error("new conversation listing failed stage=instances domain=\(failure.domain, privacy: .public) code=\(failure.code)")
+                self.retryButton.isHidden = false
                 self.instancePopup.removeAllItems()
                 self.instancePopup.addItem(withTitle: String(localized: "common.status.error", comment: "Generic Error label in a picker that failed to populate."))
                 self.instancePopup.isEnabled = false
@@ -203,12 +252,15 @@ final class NewConversationSheetController: NSViewController {
 
     private func loadSessions(for container: String) {
         sessionPopup.removeAllItems()
-        sessionPopup.addItem(withTitle: "Create new session")
+        sessionPopup.addItem(withTitle: String(localized: "newconv.session.createNew"))
         sessionPopup.lastItem?.representedObject = nil
         sessionPopup.isEnabled = true
-        Task { @MainActor in
+        sessionLoadTask?.cancel()
+        guard let context = selectedContext else { return }
+        sessionLoadTask = Task { @MainActor in
             do {
-                let list = try await SoyehtAPIClient.shared.listWorkspaces(container: container)
+                let list = try await SoyehtAPIClient.shared.listWorkspaces(container: container, context: context)
+                guard !Task.isCancelled else { return }
                 self.sessions = list
                 for ws in list {
                     self.sessionPopup.addItem(withTitle: ws.displayName)
@@ -270,7 +322,8 @@ final class NewConversationSheetController: NSViewController {
             projectPath: selectedPath,
             useWorktree: worktreeCheckbox.state == .on,
             instanceContainer: container,
-            attachSessionId: attachSessionId
+            attachSessionId: attachSessionId,
+            context: selectedContext
         )
         Self.logger.info("create tapped: handle=\(handle, privacy: .public) agent=\(agent.displayName, privacy: .public)")
         onCreate?(req)

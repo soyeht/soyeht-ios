@@ -70,6 +70,7 @@ final class SoyehtAPIClientContinueQRTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         let store = SessionStore(
             defaults: defaults,
+            credentialStorage: TestCredentialStorage(),
             keychainService: "com.soyeht.tests.\(UUID().uuidString)"
         )
         let server = PairedServer(

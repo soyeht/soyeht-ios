@@ -69,7 +69,14 @@ public struct ActiveHouseholdState: Codable, Equatable, Sendable {
 public protocol HouseholdSecureStoring: Sendable {
     func save(_ data: Data, account: String) -> Bool
     func load(account: String) -> Data?
+    func loadWithoutInteraction(account: String) throws -> Data?
     func delete(account: String)
+}
+
+public extension HouseholdSecureStoring {
+    /// Simple in-memory stores have no authentication failure. Secure stores
+    /// override this requirement to preserve read errors across the protocol.
+    func loadWithoutInteraction(account: String) throws -> Data? { load(account: account) }
 }
 
 extension KeychainHelper: HouseholdSecureStoring {}
@@ -110,7 +117,7 @@ public struct HouseholdSessionStore {
     }
 
     public func load() throws -> ActiveHouseholdState? {
-        guard let data = storage.load(account: account) else { return nil }
+        guard let data = try storage.loadWithoutInteraction(account: account) else { return nil }
         do {
             return try JSONDecoder().decode(ActiveHouseholdState.self, from: data)
         } catch {

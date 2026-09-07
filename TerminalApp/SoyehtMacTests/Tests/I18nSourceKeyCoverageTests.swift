@@ -107,6 +107,8 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
         // on Mac and iPhone at once.
         Scope(path: "Packages/SoyehtCore/Sources/SoyehtCore/Terminal",
               catalog: coreCatalog, fromRepoRoot: true),
+        Scope(path: "Packages/SoyehtCore/Sources/SoyehtCore/API/SoyehtAPIClient+LocalTerminals.swift",
+              catalog: coreCatalog, fromRepoRoot: true),
     ]
 
     // MARK: - Gate

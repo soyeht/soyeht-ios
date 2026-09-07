@@ -20,14 +20,8 @@ struct RosterProjectionStoreTests {
 
         func save(_ data: Data, account: String) -> Bool {
             lock.lock(); defer { lock.unlock() }
-            // Models `KeychainHelper.save`, which is delete-then-add: by the
-            // time a write fails, the prior record is already gone. Modelling
-            // this as an atomic refusal would let these tests assert a
-            // durability guarantee production cannot deliver.
-            guard !failSave else {
-                values.removeValue(forKey: account)
-                return false
-            }
+            // Replacement failures leave the previous persisted value intact.
+            guard !failSave else { return false }
             values[account] = data
             return true
         }
@@ -585,7 +579,7 @@ struct RosterProjectionStoreTests {
 
     // MARK: - Persist-before-publish
 
-    @Test func refusedWriteKeepsPreviousCurrentInMemoryAndDegradesToAbsent() async throws {
+    @Test func refusedWritePreservesCurrentAcrossStoreReconstruction() async throws {
         let hhId = "hh_failsave"
         let low = try acceptedGenesisCorpus(hhId: hhId)
         let high = try acceptedSeq2Corpus(hhId: hhId)
@@ -608,15 +602,11 @@ struct RosterProjectionStoreTests {
         }
         #expect(live.canonicalSnapshotBody == low.body)
 
-        // Delete-then-add already destroyed the record, so there is nothing on
-        // disk to reload. That is the accepted loss.
-        #expect(storage.rawBlob(account: account) == nil)
+        #expect(storage.rawBlob(account: account) != nil)
 
-        // A restart therefore sees total loss, which is indistinguishable from
-        // never having paired: `.absent` with no rejection marker. Neither a
-        // stale current nor a half-written record is ever served.
+        // A fresh store still derives the previous committed projection.
         let reloaded = makeStore(low, storage: storage)
-        #expect(await reloaded.load() == .absent)
+        #expect(await reloaded.load() == .current(live))
         #expect(await reloaded.lastRejection() == nil)
     }
 

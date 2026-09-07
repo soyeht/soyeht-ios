@@ -240,11 +240,19 @@
 		EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */; };
 		F17E0001000000000000F004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F003 /* Localizable.xcstrings */; };
 		FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */; };
-		CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003C0000000000000002 /* EngineServiceReconciler.swift */; };
 		CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */; };
-		EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10003C0000000000000002 /* EngineRepairWindowController.swift */; };
 		EE10003D0000000000000001 /* EngineUpdateWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10003D0000000000000002 /* EngineUpdateWindowController.swift */; };
 		EE10004C0000000000000001 /* EngineBackgroundAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10004C0000000000000002 /* EngineBackgroundAgent.swift */; };
+		B35F743B9A53765F800BB6E9 /* EngineCommandRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF590EAF245D2FB606F2DEB5 /* EngineCommandRunner.swift */; };
+		FDF1F1EDAAF095D12AD6D1D5 /* EngineInstallationProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 417751963644A4E463E877CE /* EngineInstallationProbe.swift */; };
+		5ADCB853908BFE0D568FA0A3 /* EngineReplacementCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 991ABD0CAF4A4CD5D7FAE980 /* EngineReplacementCoordinator.swift */; };
+		2CB7B89B237AE5B686D32D67 /* EngineReplacementJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5971ABA0AD3A6AA167B22F55 /* EngineReplacementJournal.swift */; };
+		DECAB7CF80EFC142CEEE2F40 /* LaunchdJobSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E1BF30674B074C302D508C /* LaunchdJobSnapshot.swift */; };
+		7F4C8F6FB25C54145A7B62EF /* PTYSupervisorInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 486498B07A3E671A1C1766D9 /* PTYSupervisorInstallation.swift */; };
+		A64B0B1C5D0415B3106654CD /* PTYSupervisorInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */; };
+		F70174C3C8B3A302B5679561 /* EngineRuntimeReadback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D731A5B59119DC8BF43E99C /* EngineRuntimeReadback.swift */; };
+		60D3B17035F98B4890EE71CF /* EngineProcessIncarnation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAE75BBE1E3BB508202FD77 /* EngineProcessIncarnation.swift */; };
+		F88F21B2D3945BB0D7F97A46 /* EngineLifecycleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F3DB8021F35AC92D1C5F01 /* EngineLifecycleService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -484,13 +492,21 @@
 		ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetupInvitationListener.swift; sourceTree = "<group>"; };
 		CB10003E0000000000000002 /* MacEngineAdvertisedURL.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacEngineAdvertisedURL.swift; sourceTree = "<group>"; };
 		EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SMAppServiceInstaller.swift; sourceTree = "<group>"; };
-		CB10003C0000000000000002 /* EngineServiceReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineServiceReconciler.swift; sourceTree = "<group>"; };
 		CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerEventsLogRepair.swift; sourceTree = "<group>"; };
-		EE10003C0000000000000002 /* EngineRepairWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineRepairWindowController.swift; sourceTree = "<group>"; };
 		EE10003D0000000000000002 /* EngineUpdateWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineUpdateWindowController.swift; sourceTree = "<group>"; };
 		EE10004C0000000000000002 /* EngineBackgroundAgent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineBackgroundAgent.swift; sourceTree = "<group>"; };
 		F17E0001000000000000F003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F754D982E57083C214517782 /* RecoverView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoverView.swift; sourceTree = "<group>"; };
+		AF590EAF245D2FB606F2DEB5 /* EngineCommandRunner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineCommandRunner.swift; sourceTree = "<group>"; };
+		417751963644A4E463E877CE /* EngineInstallationProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineInstallationProbe.swift; sourceTree = "<group>"; };
+		991ABD0CAF4A4CD5D7FAE980 /* EngineReplacementCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineReplacementCoordinator.swift; sourceTree = "<group>"; };
+		5971ABA0AD3A6AA167B22F55 /* EngineReplacementJournal.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineReplacementJournal.swift; sourceTree = "<group>"; };
+		E2E1BF30674B074C302D508C /* LaunchdJobSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchdJobSnapshot.swift; sourceTree = "<group>"; };
+		486498B07A3E671A1C1766D9 /* PTYSupervisorInstallation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PTYSupervisorInstallation.swift; sourceTree = "<group>"; };
+		51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PTYSupervisorInstaller.swift; sourceTree = "<group>"; };
+		3D731A5B59119DC8BF43E99C /* EngineRuntimeReadback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineRuntimeReadback.swift; sourceTree = "<group>"; };
+		4BAE75BBE1E3BB508202FD77 /* EngineProcessIncarnation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineProcessIncarnation.swift; sourceTree = "<group>"; };
+		F8F3DB8021F35AC92D1C5F01 /* EngineLifecycleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineLifecycleService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -540,11 +556,19 @@
 			children = (
 				3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */,
 				EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */,
-				CB10003C0000000000000002 /* EngineServiceReconciler.swift */,
 				CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */,
-				EE10003C0000000000000002 /* EngineRepairWindowController.swift */,
 				EE10003D0000000000000002 /* EngineUpdateWindowController.swift */,
 				EE10004C0000000000000002 /* EngineBackgroundAgent.swift */,
+				51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */,
+				3D731A5B59119DC8BF43E99C /* EngineRuntimeReadback.swift */,
+				4BAE75BBE1E3BB508202FD77 /* EngineProcessIncarnation.swift */,
+				F8F3DB8021F35AC92D1C5F01 /* EngineLifecycleService.swift */,
+				486498B07A3E671A1C1766D9 /* PTYSupervisorInstallation.swift */,
+				E2E1BF30674B074C302D508C /* LaunchdJobSnapshot.swift */,
+				5971ABA0AD3A6AA167B22F55 /* EngineReplacementJournal.swift */,
+				991ABD0CAF4A4CD5D7FAE980 /* EngineReplacementCoordinator.swift */,
+				417751963644A4E463E877CE /* EngineInstallationProbe.swift */,
+				AF590EAF245D2FB606F2DEB5 /* EngineCommandRunner.swift */,
 				E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */,
 				7A69005F58B0EF277320044A /* HealthCheckPoller.swift */,
 				C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */,
@@ -1388,11 +1412,19 @@
 				AB1B4E9940D1EF30AC532032 /* HouseCardView.swift in Sources */,
 				AB1B4E9940D1EF30AC532033 /* AddLinuxServerSheet.swift in Sources */,
 				FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */,
-				CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */,
 				CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */,
-				EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */,
 				EE10003D0000000000000001 /* EngineUpdateWindowController.swift in Sources */,
 				EE10004C0000000000000001 /* EngineBackgroundAgent.swift in Sources */,
+				A64B0B1C5D0415B3106654CD /* PTYSupervisorInstaller.swift in Sources */,
+				F70174C3C8B3A302B5679561 /* EngineRuntimeReadback.swift in Sources */,
+				60D3B17035F98B4890EE71CF /* EngineProcessIncarnation.swift in Sources */,
+				F88F21B2D3945BB0D7F97A46 /* EngineLifecycleService.swift in Sources */,
+				7F4C8F6FB25C54145A7B62EF /* PTYSupervisorInstallation.swift in Sources */,
+				DECAB7CF80EFC142CEEE2F40 /* LaunchdJobSnapshot.swift in Sources */,
+				2CB7B89B237AE5B686D32D67 /* EngineReplacementJournal.swift in Sources */,
+				5ADCB853908BFE0D568FA0A3 /* EngineReplacementCoordinator.swift in Sources */,
+				FDF1F1EDAAF095D12AD6D1D5 /* EngineInstallationProbe.swift in Sources */,
+				B35F743B9A53765F800BB6E9 /* EngineCommandRunner.swift in Sources */,
 				48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */,
 				E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */,
 				EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */,

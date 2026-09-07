@@ -63,6 +63,7 @@ private func makeIsolatedSessionStore() -> SessionStore {
     defaults.removePersistentDomain(forName: suiteName)
     return SessionStore(
         defaults: defaults,
+        credentialStorage: InMemoryHouseholdStorage(),
         keychainService: "com.soyeht.core.tests.sessionstore.\(id)"
     )
 }
@@ -516,16 +517,9 @@ struct SessionStoreTests {
 
     @Test("rewriting the legacy session token replaces the previous value atomically")
     func tokenRewriteReplacesPreviousValue() throws {
-        // Pins the SecItemUpdate-then-SecItemAdd path. We deliberately use
-        // the legacy single-token path (saveSession with no matching paired
-        // server) because it goes straight through `saveToKeychain(key:
-        // keychainTokenKey, …)` on every platform/configuration — including
-        // macOS DEBUG, where the multi-server map is short-circuited to
-        // UserDefaults and would not exercise the Keychain helper at all.
-        // That asymmetry was flagged in PR #39 review: the previous version
-        // of this test ran the multi-server path and silently bypassed
-        // SecItemUpdate on the default `swift test` (Debug) command, only
-        // hitting the real keychain branch under `swift test -c release`.
+        // Exercises single-token replacement through injected storage on all
+        // platforms. Security failure preservation is tested separately at
+        // the API boundary by KeychainHelperFailureTests.
         let store = makeIsolatedSessionStore()
         store.saveSession(token: "old-token", host: "rewrite.example.test", expiresAt: "2099-01-01T00:00:00Z")
         #expect(store.loadSession()?.token == "old-token")

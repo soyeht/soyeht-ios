@@ -7,6 +7,7 @@ func makeIsolatedSessionStore() -> SoyehtCore.SessionStore {
     defaults.removePersistentDomain(forName: "com.soyeht.tests.\(id)")
     return SoyehtCore.SessionStore(
         defaults: defaults,
+        credentialStorage: TestInMemoryHouseholdStorage(),
         keychainService: "com.soyeht.mobile.tests.\(id)"
     )
 }
