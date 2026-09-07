@@ -253,15 +253,17 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
     }
 
-    func test_firstSetupInstallsLocalMacPairingOnlyAfterTheHouseholdIsJoined() throws {
+    // Structural guard for first-owner setup. ExistingHouseConnectionFlowTests
+    // executes the separate Mac-local consumer path, including refusal/order.
+    func test_firstOwnerStructureRetainsEnrollmentBeforeLocalInstall() throws {
         let source = try iosSource("Onboarding/Proximity/AwaitingMacView.swift")
         let connectBody = try slice(
             source,
             from: "func connectToExistingHouse()",
-            to: "private func presentExistingHouse("
+            to: "private func localPairingForConfirmedHouse("
         )
 
-        let householdPair = try XCTUnwrap(connectBody.range(of: "HouseholdPairingService("))
+        let householdPair = try XCTUnwrap(connectBody.range(of: "try await createFirstOwner(house)"))
         let installLocalPairing = try XCTUnwrap(connectBody.range(of: "installMacLocalPairing("))
         XCTAssertLessThan(householdPair.lowerBound, installLocalPairing.lowerBound)
         XCTAssertFalse(
@@ -480,7 +482,7 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         let directFlow = try slice(
             source,
             from: "private func listenViaTailscalePeerProbe()",
-            to: "/// Wraps `claimClient.claim`"
+            to: "private func claimWithRetry("
         )
 
         XCTAssertTrue(listenFlow.contains("await listenViaTailscalePeerProbe()"))

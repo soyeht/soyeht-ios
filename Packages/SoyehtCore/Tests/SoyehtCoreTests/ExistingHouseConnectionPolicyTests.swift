@@ -1,11 +1,7 @@
 import XCTest
 @testable import SoyehtCore
 
-/// The Mac-local secret and the household certificate are two grants. The
-/// existing-home path held the first hostage to the second, and the second
-/// depends on an owner who — on the production Mac measured 2026-09-07 — can
-/// no longer act. These pin the path chosen AFTER the person confirms the Mac,
-/// and the three reasons the household ceremony still runs instead.
+/// Admission for the claim associated with the card the person confirmed.
 final class ExistingHouseConnectionPolicyTests: XCTestCase {
 
     private let home = "hh_pub_home"
@@ -25,9 +21,9 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
         )
     }
 
-    // MARK: - Household ceremony, as before
+    // MARK: - Unavailable claims
 
-    func test_runsTheCeremonyWhenNoSecretWasEverHeld() {
+    func test_waitsForAClaimWhenNoSecretWasReceived() {
         XCTAssertEqual(
             ExistingHouseConnectionPolicy.chooseConnectionPath(
                 confirmedHouseholdKey: home,
@@ -35,7 +31,7 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 hasDeferredLocalPairing: false,
                 installationMatches: true
             ),
-            .householdCeremony(.noLocalPairing)
+            .unavailable(.noLocalPairing)
         )
     }
 
@@ -49,7 +45,7 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 hasDeferredLocalPairing: true,
                 installationMatches: true
             ),
-            .householdCeremony(.householdMismatch)
+            .unavailable(.householdMismatch)
         )
     }
 
@@ -61,7 +57,7 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 hasDeferredLocalPairing: true,
                 installationMatches: false
             ),
-            .householdCeremony(.installationMismatch)
+            .unavailable(.installationMismatch)
         )
     }
 
@@ -76,19 +72,17 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 hasDeferredLocalPairing: true,
                 installationMatches: true
             ),
-            .householdCeremony(.householdMismatch)
+            .unavailable(.householdMismatch)
         )
     }
 
     // MARK: - Invariants
 
-    func test_theDecisionHasNoInputForOwnerApprovalOrCertificates() {
-        // If someone adds one, this is where the deadlock this policy removes
-        // would quietly come back.
-        let signature = String(describing: type(of: ExistingHouseConnectionPolicy.chooseConnectionPath))
-        for forbidden in ["owner", "approv", "certificate", "session"] {
-            XCTAssertFalse(signature.lowercased().contains(forbidden), signature)
-        }
+    func test_emptyIdentitiesDoNotCountAsAConfirmedHome() {
+        XCTAssertEqual(ExistingHouseConnectionPolicy.chooseConnectionPath(
+            confirmedHouseholdKey: "", deferredPairingHouseholdKey: "",
+            hasDeferredLocalPairing: true, installationMatches: true
+        ), .unavailable(.householdMismatch))
     }
 
     func test_installationOutranksHouseholdMatch() {
@@ -102,7 +96,7 @@ final class ExistingHouseConnectionPolicyTests: XCTestCase {
                 hasDeferredLocalPairing: true,
                 installationMatches: false
             ),
-            .householdCeremony(.installationMismatch)
+            .unavailable(.installationMismatch)
         )
     }
 }

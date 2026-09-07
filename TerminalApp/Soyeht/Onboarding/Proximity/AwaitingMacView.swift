@@ -373,14 +373,8 @@ struct AwaitingMacView: View {
         return result
     }
 
-    private var pendingApprovalWords: [String]? {
-        viewModel.isPairing ? viewModel.approvalWords : nil
-    }
-
     private func existingHouseCard(_ house: AwaitingMacViewModel.ExistingHouseCandidate) -> some View {
-        // Discovery identifies the home; approval identifies this request.
-        // Once the request exists, show only the words being compared now.
-        let words = pendingApprovalWords ?? viewModel.fingerprintWords
+        let words = viewModel.fingerprintWords
         return VStack(spacing: 22) {
             NeoCard(palette: palette) {
                 HStack(spacing: 14) {
@@ -403,11 +397,7 @@ struct AwaitingMacView: View {
             .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.card")
 
             VStack(spacing: 8) {
-                Text(pendingApprovalWords != nil ? LocalizedStringResource(
-                    "onboarding.approval.title",
-                    defaultValue: "Approve this iPhone",
-                    comment: "Title after a request was accepted, awaiting the owner's approval."
-                ) : LocalizedStringResource(
+                Text(LocalizedStringResource(
                     "onboarding.isThisYourMac.title",
                     defaultValue: "Is this your Mac?",
                     comment: "I4: the question, asked once."
@@ -417,11 +407,7 @@ struct AwaitingMacView: View {
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
 
-                Text(pendingApprovalWords != nil ? LocalizedStringResource(
-                    "onboarding.approval.body",
-                    defaultValue: "Ask the home owner to open Soyeht on their connected device and compare these six words before approving this iPhone.",
-                    comment: "These are request words, replacing the home discovery words. The discovered Mac may not hold the owner's key."
-                ) : LocalizedStringResource(
+                Text(LocalizedStringResource(
                     "onboarding.isThisYourMac.body",
                     defaultValue: "Your Mac is showing the same six words. If they match, connect.",
                     comment: "I4: what the person compares."
@@ -444,9 +430,7 @@ struct AwaitingMacView: View {
                                         word: words[index],
                                         palette: palette
                                     )
-                                    .accessibilityIdentifier(pendingApprovalWords != nil
-                                        ? "soyeht.onboarding.approval.word.\(index + 1)"
-                                        : "soyeht.onboarding.isThisYourMac.word.\(index + 1)")
+                                    .accessibilityIdentifier("soyeht.onboarding.isThisYourMac.word.\(index + 1)")
                                 }
                             }
                         }
@@ -464,16 +448,7 @@ struct AwaitingMacView: View {
             VStack(spacing: 10) {
                 Button(action: { viewModel.connectToExistingHouse() }) {
                     if viewModel.isPairing {
-                        HStack {
-                            ProgressView().tint(palette.onAccent)
-                            if pendingApprovalWords != nil {
-                                Text(LocalizedStringResource(
-                                    "onboarding.approval.waiting",
-                                    defaultValue: "Waiting for approval…",
-                                    comment: "Disabled button while the existing owner reviews the request."
-                                ))
-                            }
-                        }
+                        ProgressView().tint(palette.onAccent)
                     } else {
                         Text(LocalizedStringResource(
                             "awaitingMac.existingHouse.connect",
@@ -515,8 +490,16 @@ final class AwaitingMacViewModel: ObservableObject {
         let engineURL: URL
         let isDevicePairing: Bool
         let deferredLocalPairing: SetupInvitationMacLocalPairing?
+        // Preserve the claim that carried the credential. The displayed card
+        // alone cannot establish which home/profile supplied that credential.
+        let deferredClaim: SetupInvitationDirectClaim?
     }
 
+    typealias ConnectLocalMac = @MainActor (SetupInvitationMacLocalPairing) async throws -> Void
+    typealias CreateFirstOwner = @MainActor (ExistingHouseCandidate) async throws -> Void
+    private let connectLocalMac: ConnectLocalMac
+    private let createFirstOwner: CreateFirstOwner
+    private let localClaimTimeout: Duration
     private let publisher: SetupInvitationPublisher
     private let tokenBytes: Data
     private var macBrowser: NWBrowser?
@@ -550,7 +533,6 @@ final class AwaitingMacViewModel: ObservableObject {
     private var rejectedHouseholdKeys: Set<String> = []
     @Published private(set) var fingerprintWords: [String] = []
     @Published private(set) var isPairing = false
-    @Published private(set) var approvalWords: [String]?
     @Published private(set) var errorMessage: String?
     @Published var showRecoveryHint: Bool = false
     /// What the phone is actually doing, so the radar can say it. The old
@@ -565,9 +547,26 @@ final class AwaitingMacViewModel: ObservableObject {
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
 
-    init(invitation: SetupInvitationPayload) {
+    init(
+        invitation: SetupInvitationPayload,
+        connectLocalMac: ConnectLocalMac? = nil,
+        createFirstOwner: CreateFirstOwner? = nil,
+        localClaimTimeout: Duration = .seconds(10)
+    ) {
         self.publisher = SetupInvitationPublisher(invitation: invitation)
         self.tokenBytes = invitation.token.bytes
+        self.connectLocalMac = connectLocalMac ?? confirmMacLocalConnection
+        self.localClaimTimeout = localClaimTimeout
+        self.createFirstOwner = createFirstOwner ?? { house in
+            _ = try await HouseholdPairingService(
+                browser: DirectExistingHousePairingBrowser(
+                    endpoint: house.engineURL, householdName: house.name
+                ),
+                keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+            ).pair(url: house.pairDeviceURI,
+                   displayName: HouseholdOwnerDisplayName.defaultName(),
+                   reachedEndpoint: house.engineURL)
+        }
     }
 
     func start(onMacFound: @escaping (AwaitingMacView.Result) -> Void) {
@@ -633,7 +632,8 @@ final class AwaitingMacViewModel: ObservableObject {
                     self.presentExistingHouse(
                         existingHouse,
                         engineURL: engineURL,
-                        deferredLocalPairing: claim.macLocalPairing
+                        deferredLocalPairing: claim.macLocalPairing,
+                        deferredClaim: claim
                     )
                     return
                 }
@@ -658,7 +658,17 @@ final class AwaitingMacViewModel: ObservableObject {
     /// the Dev pair 2026-09-03: the Mac minted the secret at 21:57:45Z, its
     /// claim arrived at 21:57:50Z, and the latch dropped it on the floor. The
     /// claim is late, not wrong.
-    private func acceptLateClaim(_ claim: SetupInvitationDirectClaim) {
+    func acceptLateClaim(_ claim: SetupInvitationDirectClaim) {
+        guard claim.token.bytes == tokenBytes,
+              claim.installation == .current,
+              Self.engineURLMatchesCurrentInstallProfile(claim.macEngineURL) else { return }
+        if let candidate = pendingExistingHouse {
+            guard candidate.deferredLocalPairing == nil else { return }
+            // Match the code the person sees, including this Mac's nonce.
+            // Hostnames and IPs may differ for the same Mac across networks.
+            if candidate.isDevicePairing,
+               !Self.claim(claim, matchesDevicePairingCode: candidate.pairDeviceURI) { return }
+        }
         let claimHouseholdKey = claim.existingHouse
             .flatMap { URL(string: $0.pairDeviceURI) }
             .flatMap { Self.householdKey(of: $0) }
@@ -682,7 +692,8 @@ final class AwaitingMacViewModel: ObservableObject {
                 pairDeviceURI: candidate.pairDeviceURI,
                 engineURL: candidate.engineURL,
                 isDevicePairing: candidate.isDevicePairing,
-                deferredLocalPairing: pairing
+                deferredLocalPairing: pairing,
+                deferredClaim: claim
             )
             awaitingMacLogger.info("late_claim_deferred_to_candidate")
         case .install:
@@ -693,28 +704,19 @@ final class AwaitingMacViewModel: ObservableObject {
         }
     }
 
-    /// Does a late claim belong to the home the card is offering?
-    ///
-    /// `hh_pub` is the household's identity and the only part of the pairing
-    /// link that holds still while the nonce rotates. A claim from a Mac that
-    /// had no home to announce is matched on the engine host instead — same
-    /// Mac, same answer.
     private static func claim(
-        _ claim: SetupInvitationDirectClaim,
-        matchesHouseholdOf candidate: ExistingHouseCandidate
+        _ claim: SetupInvitationDirectClaim, matchesDevicePairingCode confirmedURL: URL
     ) -> Bool {
-        if let claimedURI = claim.existingHouse?.pairDeviceURI,
-           let claimedURL = URL(string: claimedURI),
-           let claimedHousehold = householdKey(of: claimedURL) {
-            return claimedHousehold == householdKey(of: candidate.pairDeviceURI)
-        }
-        return claim.macEngineURL.host == candidate.engineURL.host
+        guard let claimedURL = claim.existingHouse.flatMap({ URL(string: $0.pairDeviceURI) }),
+              let claimed = try? HouseholdDevicePairingLink(url: claimedURL),
+              let confirmed = try? HouseholdDevicePairingLink(url: confirmedURL) else { return false }
+        return claimed.householdPublicKey == confirmed.householdPublicKey
+            && claimed.pairingNonce == confirmed.pairingNonce
     }
 
     func stop() {
         pairingTask?.cancel()
         pairingTask = nil
-        approvalWords = nil
         // Discovery state does not survive a restart of the screen: after
         // "Not my Mac" or "Keep looking" the next claim is judged from
         // scratch, and a secret installed for the previous home is not
@@ -800,36 +802,29 @@ final class AwaitingMacViewModel: ObservableObject {
         if showRecoveryHint { showRecoveryHint = false }
     }
 
-    func connectToExistingHouse() {
-        guard let house = pendingExistingHouse, !isPairing else { return }
+    @discardableResult
+    func connectToExistingHouse() -> Task<Void, Never>? {
+        guard let house = pendingExistingHouse, !isPairing else { return nil }
         isPairing = true
         errorMessage = nil
-        approvalWords = nil
 
         pairingTask = Task {
             do {
+                try Task.checkCancellation()
                 if house.isDevicePairing {
-                    let link = try HouseholdDevicePairingLink(url: house.pairDeviceURI)
-                    _ = try await HouseholdDevicePairingService(
-                        keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
-                    ).pair(link: link, reachedEndpoint: house.engineURL, onPending: { [weak self] review in
-                        awaitingMacLogger.info("\(review.diagnostic, privacy: .public)")
-                        await MainActor.run { self?.approvalWords = review.words }
-                    })
-                } else {
-                    _ = try await HouseholdPairingService(
-                        browser: DirectExistingHousePairingBrowser(
-                            endpoint: house.engineURL,
-                            householdName: house.name
-                        ),
-                        keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
-                    ).pair(
-                        url: house.pairDeviceURI,
-                        displayName: HouseholdOwnerDisplayName.defaultName(),
-                        // Reachability evidence joins the engine offer in the shared policy.
-                        reachedEndpoint: house.engineURL
-                    )
+                    let localPairing = try await localPairingForConfirmedHouse(house)
+                    try Task.checkCancellation()
+                    try await connectLocalMac(localPairing)
+                    try Task.checkCancellation()
+                    installedLocalPairingForDiscovery = true
+                    isPairing = false
+                    phase = .paired(macName: house.hostLabel)
+                    awaitingMacLogger.info("existing_house.mac_connection_confirmed household_enrolled=false")
+                    onMacFoundHandler?(.connectedToExistingMac(macName: house.hostLabel))
+                    return
                 }
+                // First-owner setup still creates the household identity.
+                try await createFirstOwner(house)
                 do {
                     _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
                 } catch {
@@ -875,11 +870,63 @@ final class AwaitingMacViewModel: ObservableObject {
                 self.recordFailure(failure)
             }
         }
+        return pairingTask
+    }
+
+    private func localPairingForConfirmedHouse(
+        _ confirmed: ExistingHouseCandidate
+    ) async throws -> SetupInvitationMacLocalPairing {
+        let deadline = ContinuousClock.now.advanced(by: localClaimTimeout)
+        while true {
+            try Task.checkCancellation()
+            guard let candidate = pendingExistingHouse,
+                  candidate.id == confirmed.id,
+                  let confirmedKey = Self.householdKey(of: confirmed.pairDeviceURI) else {
+                throw PairingAttemptFailure(stage: .confirm, endpoint: confirmed.engineURL,
+                                            cause: .address(.staleDecision))
+            }
+            let claim = candidate.deferredClaim
+            let claimedKey = claim?.existingHouse.flatMap { URL(string: $0.pairDeviceURI) }
+                .flatMap { Self.householdKey(of: $0) }
+            let decision = ExistingHouseConnectionPolicy.chooseConnectionPath(
+                confirmedHouseholdKey: confirmedKey,
+                deferredPairingHouseholdKey: claimedKey,
+                hasDeferredLocalPairing: candidate.deferredLocalPairing != nil,
+                installationMatches: claim?.installation == .current
+            )
+            switch decision {
+            case .macLocal:
+                guard let claim, claim.token.bytes == tokenBytes,
+                      let pairing = claim.macLocalPairing,
+                      pairing == candidate.deferredLocalPairing else {
+                    throw PairingAttemptFailure(stage: .claim, endpoint: confirmed.engineURL,
+                                                cause: .invalidResponse)
+                }
+                guard Self.claim(claim, matchesDevicePairingCode: confirmed.pairDeviceURI) else {
+                    throw PairingAttemptFailure(stage: .claim, endpoint: confirmed.engineURL,
+                                                cause: .address(.staleDecision))
+                }
+                return pairing
+            case .unavailable(.installationMismatch):
+                throw PairingAttemptFailure(stage: .claim, endpoint: confirmed.engineURL,
+                                            cause: .address(.profileMismatch))
+            case .unavailable(.householdMismatch):
+                throw PairingAttemptFailure(stage: .claim, endpoint: confirmed.engineURL,
+                                            cause: .certificate)
+            case .unavailable(.noLocalPairing):
+                // Bonjour can display the card before the direct claim arrives.
+                // Wait for that claim, never substitute owner approval for it.
+                guard ContinuousClock.now < deadline else {
+                    throw PairingAttemptFailure(stage: .claim, endpoint: confirmed.engineURL,
+                        cause: .network(.timeout, domain: NSURLErrorDomain, code: URLError.timedOut.rawValue))
+                }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+        }
     }
 
     private func recordFailure(_ failure: PairingAttemptFailure) {
         isPairing = false
-        approvalWords = nil
         errorMessage = failure.userMessage
         diagnosticMessage = nil
         phase = .stalled(.pairingFailure(failure))
@@ -1162,10 +1209,11 @@ final class AwaitingMacViewModel: ObservableObject {
         }
     }
 
-    private func presentExistingHouse(
+    func presentExistingHouse(
         _ house: SetupInvitationExistingHouse,
         engineURL: URL,
-        deferredLocalPairing: SetupInvitationMacLocalPairing?
+        deferredLocalPairing: SetupInvitationMacLocalPairing?,
+        deferredClaim: SetupInvitationDirectClaim? = nil
     ) {
         guard !alreadyFound || pendingExistingHouse == nil else { return }
         guard let pairURL = URL(string: house.pairDeviceURI) else {
@@ -1221,7 +1269,8 @@ final class AwaitingMacViewModel: ObservableObject {
             pairDeviceURI: effectivePairURL,
             engineURL: engineURL,
             isDevicePairing: isDevicePairing,
-            deferredLocalPairing: deferredLocalPairing
+            deferredLocalPairing: deferredLocalPairing,
+            deferredClaim: deferredClaim
         )
         // We're now showing the existing-house connect card; the recovery
         // hint must not flash up alongside it.
@@ -1262,7 +1311,8 @@ final class AwaitingMacViewModel: ObservableObject {
                     pairDeviceURI: refreshed,
                     engineURL: candidate.engineURL,
                     isDevicePairing: candidate.isDevicePairing,
-                    deferredLocalPairing: candidate.deferredLocalPairing
+                    deferredLocalPairing: candidate.deferredLocalPairing,
+                    deferredClaim: candidate.deferredClaim
                 )
                 awaitingMacLogger.info("existing_house.offer_refreshed")
             }
@@ -1280,9 +1330,32 @@ final class AwaitingMacViewModel: ObservableObject {
 }
 
 @MainActor
-func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
+private func confirmMacLocalConnection(_ pairing: SetupInvitationMacLocalPairing) async throws {
+    try Task.checkCancellation()
+    let registry = PairedMacRegistry.shared
+    guard installMacLocalPairing(pairing) else {
+        throw PairingAttemptFailure(stage: .storage, endpoint: nil, cause: .storage)
+    }
+    let deadline = ContinuousClock.now.advanced(by: .seconds(15))
+    while ContinuousClock.now < deadline {
+        try Task.checkCancellation()
+        if registry.client(for: pairing.macID)?.status == .authenticated { return }
+        try await Task.sleep(for: .milliseconds(100))
+    }
+    throw PairingAttemptFailure(stage: .confirm, endpoint: nil,
+        cause: .network(.connection, domain: NSURLErrorDomain, code: URLError.cannotConnectToHost.rawValue))
+}
+
+@MainActor
+@discardableResult
+func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) -> Bool {
     let store = PairedMacsStore.shared
+    let previousSecret = store.secret(for: pairing.macID)
     store.storeSecret(pairing.secret, for: pairing.macID)
+    guard store.secret(for: pairing.macID) == pairing.secret else { return false }
+    if previousSecret != pairing.secret {
+        PairedMacRegistry.shared.invalidateClient(for: pairing.macID)
+    }
     ServerRegistry.shared.upsertMacPairing(
         macID: pairing.macID,
         name: pairing.macName,
@@ -1295,6 +1368,7 @@ func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
         suggestedAlias: pairing.macName
     )
     PairedMacRegistry.shared.reconcileClients()
+    return true
 }
 
 // MARK: - URL extraction (nonisolated — reads only Sendable value types from NWBrowser.Result)
