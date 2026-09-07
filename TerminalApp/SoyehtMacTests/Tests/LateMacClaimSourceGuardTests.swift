@@ -18,7 +18,9 @@ import XCTest
 /// the SwiftPM domain tests link, so — as in
 /// `SetupInvitationListenerBootstrapErrorCodeGuardTests` and
 /// `OnboardingRootsSourceGuardTests` — these guard the shape by reading the
-/// source rather than calling the functions.
+/// source rather than calling the functions. These are wiring checks, not
+/// behavior proof: `ExistingHouseConnectionFlowTests` in the iOS test target
+/// executes the real claim consumer, including wrong-house/nonce refusals.
 final class LateMacClaimSourceGuardTests: XCTestCase {
 
     // MARK: - The latch no longer drops a late claim
@@ -164,26 +166,28 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         )
     }
 
-    func test_householdMatchReadsHhPub_andFallsBackToTheEngineHost() throws {
+    func test_confirmedDevicePairingCodeRequiresTheSameHouseAndNonce() throws {
         let match = try slice(
             try codeOnly(awaitingMacSource()),
-            from: "private static func claim(",
+            from: "static func claim(",
             to: "    func stop() {"
         )
         XCTAssertTrue(
-            match.contains("householdKey(of: claimedURL)") && match.contains("householdKey(of: candidate.pairDeviceURI)"),
-            "the household match must compare hh_pub — the only part of the link that holds still while the nonce rotates"
+            match.contains("HouseholdDevicePairingLink(url: claimedURL)")
+                && match.contains("HouseholdDevicePairingLink(url: confirmedURL)"),
+            "compare the typed claim and the code actually shown for confirmation"
         )
         XCTAssertTrue(
-            match.contains("claim.macEngineURL.host == candidate.engineURL.host"),
-            "a claim carrying no household must fall back to the engine host"
+            match.contains("claimed.householdPublicKey == confirmed.householdPublicKey")
+                && match.contains("claimed.pairingNonce == confirmed.pairingNonce"),
+            "a shared household or hostname alone does not identify the confirmed Mac code"
         )
     }
 
     func test_connectReadsTheCandidateRebuiltWhileItWasInFlight() throws {
         let connect = try slice(
             try codeOnly(awaitingMacSource()),
-            from: "func connectToExistingHouse() {",
+            from: "func connectToExistingHouse()",
             to: "private func recordFailure("
         )
         XCTAssertTrue(
@@ -195,7 +199,7 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
 
     func testPairingFailuresPreserveTheAttemptInsteadOfGuessingFromTheLink() throws {
         let source = try codeOnly(awaitingMacSource())
-        let connect = try slice(source, from: "func connectToExistingHouse() {", to: "private func recordFailure(")
+        let connect = try slice(source, from: "func connectToExistingHouse()", to: "private func recordFailure(")
         XCTAssertTrue(connect.contains("PairingAttemptFailure.capture("))
         XCTAssertTrue(connect.contains("self.recordFailure(failure)"))
         XCTAssertFalse(source.contains("connectFailureReason("))
@@ -387,19 +391,27 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         try repoSource("TerminalApp/SoyehtMac/Welcome/SetupInvitationListener/SetupInvitationListener.swift")
     }
 
-    /// The body of `publisher.onMacClaimed`, which is where the race is decided.
+    /// Follow the publisher callback into its actual consumer. Looking only at
+    /// the wrapper misses its guards; looking only at the consumer would keep
+    /// passing if the publisher stopped calling it.
     private func claimHandler() throws -> String {
-        try slice(
-            try codeOnly(awaitingMacSource()),
+        let source = try codeOnly(awaitingMacSource())
+        let callback = try slice(
+            source,
             from: "publisher.onMacClaimed = { [weak self] claim in",
             to: "publisher.start()"
         )
+        _ = try XCTUnwrap(
+            callback.range(of: "await self?.handleDirectClaim(claim)"),
+            "the publisher must deliver claims to the consumer exercised by the iOS behavior tests"
+        )
+        return try slice(source, from: "func handleDirectClaim(", to: "func acceptLateClaim(")
     }
 
     private func acceptLateClaimBody() throws -> String {
         try slice(
             try codeOnly(awaitingMacSource()),
-            from: "private func acceptLateClaim(",
+            from: "func acceptLateClaim(",
             to: "private static func claim("
         )
     }
