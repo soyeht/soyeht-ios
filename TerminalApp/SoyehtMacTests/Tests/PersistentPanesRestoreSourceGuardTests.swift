@@ -44,7 +44,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(restoreGuard.contains("forceReattach || !terminalView.isRemoteSessionConfigured"))
     }
 
-    func testRestoreEnginePaneGuardsAndFallsBackToNativePTY() throws {
+    func testRestoreEnginePanePreservesOwnershipWithoutNativeFallback() throws {
         let source = try macSource("PaneGrid/PaneViewController.swift")
         let restore = try slice(
             source,
@@ -52,7 +52,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             to: "private func stillRestorableEngineConversation("
         )
         // Only engineLocal panes with no live WS session, not re-entrant.
-        XCTAssertTrue(restore.contains("case .engineLocal(let initialEngineConversationID) = conv.commander"))
+        XCTAssertTrue(restore.contains("case .engineLocal(let initialEngineConversationID, _, _) = conv.commander"))
         XCTAssertTrue(restore.contains("!terminalView.isRemoteSessionConfigured"))
         XCTAssertTrue(restore.contains("!isRestoringLocalShell"))
         // Reuses the shared attacher rather than reimplementing create+attach.
@@ -61,21 +61,22 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         // fresh respawn, never claim "restored" for the latter.
         XCTAssertTrue(restore.contains("case .attached(reconnected: true):"))
         XCTAssertTrue(restore.contains("case .attached(reconnected: false):"))
-        // Never leaves the pane dead if the engine can't be reached.
-        XCTAssertTrue(restore.contains("NativePTY("))
-        XCTAssertTrue(restore.contains(".native(pid: pty.pid)"))
+        // Transport failure never selects a second process owner.
+        XCTAssertTrue(restore.contains("case .preserved(let retryable, let message):"))
+        XCTAssertTrue(restore.contains("preserveEngineSession("))
+        XCTAssertFalse(restore.contains("NativePTY("))
+        XCTAssertFalse(restore.contains(".native(pid: pty.pid)"))
 
         // FIX-1 (independent review): a transient failure must retry with
         // backoff before downgrading to .native, or a blip permanently
         // orphans the live engine session (next relaunch only looks for
         // .engineLocal).
         XCTAssertTrue(restore.contains("restoreRetryDelaysNanoseconds"))
-        XCTAssertTrue(restore.contains("case .failed(transient: true) = outcome"))
+        XCTAssertTrue(restore.contains("case .failed(transient: true, message: _) = outcome"))
         XCTAssertTrue(restore.contains("Task.sleep(nanoseconds:"))
-        // Best-effort delete before falling back, in case a request that
-        // looked failed to us actually succeeded engine-side (lost
-        // response) — must not leave that orphaned.
-        XCTAssertTrue(restore.contains("bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)"))
+        // Explicit legacy cleanup remains behind the ownership guards;
+        // supervised operations require an instance or creation-intent fence.
+        XCTAssertFalse(restore.contains("bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)"))
 
         // FIX-2 (independent review, TOCTOU): every await gap must
         // re-validate before acting — the pane/workspace can close mid-
@@ -94,32 +95,20 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         let helper = try slice(
             source,
             from: "private func stillRestorableEngineConversation(",
-            to: "private static func bestEffortDeleteEngineSession("
+            to: "// MARK: - Header wiring"
         )
         XCTAssertTrue(helper.contains("LivePaneRegistry.shared.pane(for: conversationID) === self"))
         XCTAssertTrue(helper.contains("convStore.conversation(conversationID)"))
         XCTAssertTrue(helper.contains("case .engineLocal = conversation.commander"))
     }
 
-    func testBestEffortDeleteEngineSessionClearsRegistryAndNeverThrows() throws {
+    func testLateRestoreCannotDeleteByConversationAlone() throws {
         let source = try macSource("PaneGrid/PaneViewController.swift")
-        let helper = try slice(
-            source,
-            from: "private static func bestEffortDeleteEngineSession(",
-            to: "// MARK: - Header wiring"
-        )
-        // FIX-3 (independent review): the registry is keyed by the
-        // engine's own echoed conversation_id, stored on
-        // .engineLocal(conversationID:) — not conversation.id.uuidString.
-        // Cleaning it up here uses the same caller-supplied value.
-        XCTAssertTrue(helper.contains("EngineSessionTTYRegistry.remove(conversationID: engineConversationID)"))
-        XCTAssertTrue(helper.contains("try? await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
+        XCTAssertFalse(source.contains("bestEffortDeleteEngineSession("))
+        let attacher = try macSource("SoyehtInstance/EnginePaneAttacher.swift")
+        XCTAssertTrue(attacher.contains("sessionInstanceId: instance"))
     }
 
-    /// FIX-1 (independent review): retry-worthiness must be a real
-    /// classification, not a blanket "everything is transient" — a
-    /// definitive 4xx (bad request, auth failure) should fail fast to the
-    /// `NativePTY` fallback rather than waste ~3.5s of retries.
     func testAttachOutcomeClassifiesTransientFailuresBeforeRetrying() throws {
         let source = try macSource("SoyehtInstance/EnginePaneAttacher.swift")
         let attacher = try slice(
@@ -127,7 +116,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             from: "enum EnginePaneAttacher",
             to: "static func attach("
         )
-        XCTAssertTrue(attacher.contains("case failed(transient: Bool)"))
+        XCTAssertTrue(attacher.contains("case failed(transient: Bool, message: String"))
         XCTAssertTrue(attacher.contains("500...599"))
         XCTAssertTrue(attacher.contains("case SoyehtAPIClient.APIError.httpError(let status, _) = error"))
         // No local engine context at all is definitive, not transient —
@@ -137,7 +126,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             from: "static func attach(",
             to: "}\n}"
         )
-        XCTAssertTrue(attach.contains("return .failed(transient: false)"))
+        XCTAssertTrue(attach.contains("return unresolved(false)"))
     }
 
     func testFirstAttachAndRestoreShareTheSameEngineAttachMechanics() throws {
@@ -168,12 +157,12 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         XCTAssertTrue(attach.contains("LocalEngineContext.resolveDetailed()"))
         XCTAssertTrue(attach.contains("case .engineNotAnsweringYet:"),
                       "o attacher tem de distinguir 'ainda não respondeu' de 'não há'")
-        XCTAssertTrue(attach.contains("return .failed(transient: true)"),
+        XCTAssertTrue(attach.contains("return unresolved(true)"),
                       "'ainda não respondeu' tem de armar a repetição a jusante, que já existe e estava correta")
         XCTAssertTrue(attach.contains("EnginePaneSpawnRequestBuilder.makeCreateRequest("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.createLocalTerminal("))
         XCTAssertTrue(attach.contains("SoyehtAPIClient.shared.buildLocalTerminalWebSocketAttachment("))
-        XCTAssertTrue(attach.contains("convStore.updateCommander(conversation.id, commander: .engineLocal(conversationID: response.conversationId))"))
+        XCTAssertTrue(attach.contains("conversationID: response.conversationId, sessionInstanceID: response.sessionInstanceId"))
         XCTAssertTrue(attach.contains("terminalView.configure("))
         XCTAssertTrue(attach.contains("wsUrl: attachment.url"))
         XCTAssertTrue(attach.contains("cookieHeader: attachment.cookieHeader"))
@@ -246,7 +235,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         // apenas que a chamada existisse — e um mutante que trocasse a guarda
         // por `if false` passava verde com o comportamento morto. Presença não
         // é efeito.
-        XCTAssertTrue(restore.contains("if SoyehtFeatureFlags.persistentLocalPanesEnabled,"),
+        XCTAssertTrue(restore.contains("if SoyehtFeatureFlags.persistentLocalPanesEnabled {"),
                       "a promoção só pode estar atrás da flag de panes persistentes; qualquer outra condição desliga-a em silêncio")
         // E quando resulta, o caminho nativo não pode correr também: tem de
         // haver um `return` ENTRE a tentativa e a construção da PTY.
@@ -255,28 +244,21 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
                       "sem um return entre as duas, uma promoção bem-sucedida seria seguida de uma PTY nativa por cima")
     }
 
-    /// Fail-open: qualquer falha tem de cair na PTY nativa. Uma promoção que
-    /// deixasse a pane morta seria pior do que a fragilidade que corrige.
-    func testTheUpgradeNeverLeavesThePaneDead() throws {
+    func testUnavailableUpgradePreservesThePaneWithoutClaimingAttachment() throws {
         let source = try macSource("PaneGrid/PaneViewController.swift")
-        let attempt = try slice(
-            source,
-            from: "private func upgradedRestoredPaneToEngine(",
-            to: "private func stillRestorableNativeConversation("
-        )
-        XCTAssertEqual(attempt.components(separatedBy: "return false").count - 1, 3,
-                       "as três saídas de falha (sem store, sem pane viva, attach falhado) têm de devolver false para o chamador reconstruir")
-        guard let attachedAt = attempt.range(of: "guard case .attached(let reconnected) = outcome else { return false }"),
-              let successAt = attempt.range(of: "return true") else {
-            return XCTFail("a promoção deixou de exigir um attach bem-sucedido antes de reclamar sucesso")
-        }
-        // ORDEM, não presença. Um `return true` colocado ANTES do guard deixa
-        // a asserção de presença verde e promove uma pane que nunca ligou —
-        // medido com mutante na primeira versão desta guarda.
-        XCTAssertLessThan(attachedAt.lowerBound, successAt.lowerBound,
-                          "o único `return true` tem de vir DEPOIS do guard; antes dele reclama sucesso sem attach")
-        XCTAssertEqual(attempt.components(separatedBy: "return true").count - 1, 1,
-                       "um só caminho pode reclamar sucesso")
+        let attempt = try slice(source, from: "private func upgradedRestoredPaneToEngine(",
+                                to: "private func stillRestorableNativeConversation(")
+        let preserved = try slice(attempt, from: "if case .preserved", to: "guard case .attached")
+        XCTAssertTrue(preserved.contains("preserveEngineSession(message: message, retryable: retryable)"))
+        XCTAssertFalse(preserved.contains("markTerminalTransportReady"))
+        let unavailable = try slice(attempt, from: "if case .failed(let retryable, let message)", to: "guard case .attached")
+        XCTAssertTrue(unavailable.contains("preserveEngineSession("))
+        XCTAssertFalse(unavailable.contains("markTerminalTransportReady"))
+        XCTAssertFalse(attempt.contains("NativePTY("))
+        let controller = try macSource("MainWindow/SoyehtMainWindowController.swift")
+        let enginePath = try slice(controller, from: "private func attachEnginePane(", to: "private static let firstAttachRetryDelaysNanoseconds")
+        XCTAssertFalse(enginePath.contains("return false"))
+        XCTAssertFalse(enginePath.contains("NativePTY("))
     }
 
     /// A promoção só olha para panes `.native`, e o restauro do engine só para
@@ -292,7 +274,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         let engine = try slice(
             source,
             from: "private func stillRestorableEngineConversation(",
-            to: "/// Best-effort cleanup"
+            to: "// MARK: - Header wiring"
         )
         XCTAssertTrue(native.contains("case .native = conversation.commander"))
         XCTAssertFalse(native.contains("case .engineLocal"))

@@ -561,7 +561,12 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
         // the release that carries the Bonjour advert fix. Ritual performed
         // again, and the hash is the SAME value as above — which is the point:
         // it proves the pin moved and this slice's evidence did not.
-        #expect(pin == "1a8e57630b49ded40d3b1a1a6a64386e4953b663")
+        //
+        // Moved to e84f998a (theyos main at engine 0.1.31) on 2026-09-07, for
+        // the release that carries the PTY supervisor. Ritual performed a third
+        // time before the literal moved: the vendored fixture and the source
+        // file at that commit both hash to 55fe55c6…f8f, the same value again.
+        #expect(pin == "e84f998a8390abfe70a95433b7f0ab513823dbd4")
     }
 }
 

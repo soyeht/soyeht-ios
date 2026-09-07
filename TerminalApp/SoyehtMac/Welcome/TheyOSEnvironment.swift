@@ -178,14 +178,7 @@ enum TheyOSEnvironment {
 }
 
 struct EmbeddedEngineSupportBundleSpec: Equatable {
-    static let supportBinaryNames = [
-        "theyos-engine",
-        "vmrunner_macos_ipc",
-        "store-ipc",
-        "terminal-ipc",
-        "theyos-ssh",
-        "theyos-provision-inject",
-    ]
+    static let supportBinaryNames = EmbeddedEngineHelpers.names
 
     let profile: SoyehtInstallProfile
 

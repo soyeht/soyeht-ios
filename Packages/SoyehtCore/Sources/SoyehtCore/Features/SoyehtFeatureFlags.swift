@@ -78,8 +78,10 @@ public enum SoyehtFeatureFlags {
     /// app) through the engine's broker-owned PTY (`POST
     /// /api/v1/terminals/local`) instead of a direct `NativePTY` forkpty, so
     /// the pane survives an app restart/update. Enabled by default since
-    /// mac-v0.1.30 (engine >= 0.1.22 bundles the local broker); `NativePTY`
-    /// remains the fallback when this is off or when engine attach fails.
+    /// mac-v0.1.30 (engine >= 0.1.22 bundles the local broker). The flag only
+    /// selects a new pane's initial backend. A known supervisor instance or
+    /// uncertain CREATE retains engine ownership even if the flag is disabled
+    /// or attach fails; those outcomes cannot fall back to `NativePTY`.
     public static var persistentLocalPanesEnabled: Bool {
         if isPersistentLocalPanesE2ELaunchArgumentEnabled(
             bundleIdentifier: Bundle.main.bundleIdentifier,

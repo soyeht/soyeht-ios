@@ -78,7 +78,7 @@ private func makeMobileClawVPNStore() -> SessionStore {
   let name = "com.soyeht.core.tests.mobile-claw-vpn.\(id)"
   let defaults = UserDefaults(suiteName: name)!
   defaults.removePersistentDomain(forName: name)
-  return SessionStore(defaults: defaults, keychainService: name)
+  return SessionStore(defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: name)
 }
 
 @discardableResult

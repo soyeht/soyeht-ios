@@ -294,6 +294,7 @@ final class InstalledClawsProviderTests: XCTestCase {
         defaults.removePersistentDomain(forName: "com.soyeht.tests.provider.\(id)")
         return SessionStore(
             defaults: defaults,
+            credentialStorage: TestCredentialStorage(),
             keychainService: "com.soyeht.mobile.tests.\(id)"
         )
     }

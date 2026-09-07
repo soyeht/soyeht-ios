@@ -78,7 +78,7 @@ public actor CRLStore {
         self.snapshotCursor = nil
         self.lastUpdatedAt = nil
 
-        guard let data = storage.load(account: account) else { return }
+        guard let data = try storage.loadWithoutInteraction(account: account) else { return }
         let state: PersistedState
         do {
             state = try JSONDecoder().decode(PersistedState.self, from: data)

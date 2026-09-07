@@ -88,17 +88,26 @@ final class EngineCompatTests: XCTestCase {
     /// window opening ten times after that with no advert at all — the phone
     /// had no way to find the Mac.
     ///
-    /// So the floor moves to 0.1.30. A Mac left on 0.1.29 has the route and
-    /// none of its effect, which is the worst of the three states: it looks
-    /// healthy and pairs nobody.
-    func test_currentReleaseRequiresTheAdvertThatFollowsTheWindow() {
-        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.30")
-        XCTAssertFalse(
-            EngineCompat.isCompatible("0.1.29"),
-            "0.1.29 answers local-network-visibility but never reconciles the advert"
-        )
-        XCTAssertFalse(EngineCompat.isCompatible("0.1.28"), "0.1.28 has no local-network-visibility route")
-        XCTAssertTrue(EngineCompat.isCompatible("0.1.30"))
+    /// That is why the floor moved to 0.1.30 in the previous release: a Mac
+    /// left on 0.1.29 has the route and none of its effect, which is the worst
+    /// of the three states — it looks healthy and pairs nobody.
+    ///
+    /// The floor now moves to 0.1.31 for a different reason. 0.1.31 is the
+    /// first engine that CAN own its PTYs outside the HTTP process, in
+    /// `soyeht-ptyd`; below it that capability does not exist at all. This
+    /// test asserts the floor chosen for the release and nothing more —
+    /// whether a given engine actually reaches a compatible supervisor is
+    /// decided by the package contract and the runtime readback, never
+    /// inferred from a semver string.
+    func test_currentReleaseRequiresIndependentPTYSupervisor() {
+        XCTAssertEqual(EngineCompat.minSupportedEngineVersion, "0.1.31")
+        // Single-line on purpose: the governed release contract derives the
+        // refused version by matching `XCTAssertFalse(EngineCompat.isCompatible(`
+        // on one line, so wrapping this call makes the gate report that the
+        // floor is not enforced downward. It caught exactly that here.
+        XCTAssertFalse(EngineCompat.isCompatible("0.1.30"), "0.1.30 owns every PTY inside the HTTP process, so replacing it kills the owner's sessions")
+        XCTAssertFalse(EngineCompat.isCompatible("0.1.29"), "0.1.29 answers local-network-visibility but never reconciles the advert")
+        XCTAssertTrue(EngineCompat.isCompatible("0.1.31"))
     }
 
     func test_isCompatible_rejectsUnparseableVersion() {

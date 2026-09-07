@@ -9,13 +9,48 @@ private func keychainErrorLog(_ message: String) {
     keychainLog.error("\(message, privacy: .public)")
 }
 
+/// Injectable at the Security API boundary so failure tests never access a
+/// person's Keychain. Implementations must serialize their own mutable state.
+protocol KeychainOperations: Sendable {
+    func add(_ query: [String: Any]) -> OSStatus
+    func update(_ query: [String: Any], attributes: [String: Any]) -> OSStatus
+    func copyMatching(_ query: [String: Any]) -> (OSStatus, AnyObject?)
+    func delete(_ query: [String: Any]) -> OSStatus
+}
+
+private struct SystemKeychainOperations: KeychainOperations {
+    func add(_ query: [String: Any]) -> OSStatus {
+        SecItemAdd(query as CFDictionary, nil)
+    }
+    func update(_ query: [String: Any], attributes: [String: Any]) -> OSStatus {
+        SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+    }
+    func copyMatching(_ query: [String: Any]) -> (OSStatus, AnyObject?) {
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        return (status, result)
+    }
+    func delete(_ query: [String: Any]) -> OSStatus {
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
 public struct KeychainHelper: Sendable {
     public let service: String
     public let accessibility: String
+    private let operations: any KeychainOperations
 
     public init(service: String, accessibility: CFString = kSecAttrAccessibleAfterFirstUnlock) {
         self.service = service
         self.accessibility = accessibility as String
+        self.operations = SystemKeychainOperations()
+    }
+
+    init(service: String, accessibility: CFString = kSecAttrAccessibleAfterFirstUnlock,
+         operations: any KeychainOperations) {
+        self.service = service
+        self.accessibility = accessibility as String
+        self.operations = operations
     }
 
     private func baseQuery(account: String) -> [String: Any] {
@@ -50,28 +85,31 @@ public struct KeychainHelper: Sendable {
     }
     #endif
 
-    private func update(_ query: [String: Any], data: Data, account: String, label: String) -> Bool {
+    private func upsert(_ query: [String: Any], data: Data) -> OSStatus {
         let attrs: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: accessibility,
         ]
-        let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
-        if status == errSecSuccess { return true }
-        keychainErrorLog("update failed (\(label)) account=\(account) status=\(status)")
-        return false
+        // Never delete as part of replacement. A failed update preserves the
+        // previous value, including when authentication is unavailable.
+        let status = operations.update(query, attributes: attrs)
+        guard status == errSecItemNotFound else { return status }
+        var item = query
+        item.merge(attrs) { _, new in new }
+        let added = operations.add(item)
+        guard added == errSecDuplicateItem else { return added }
+        // Another writer inserted between update and add. Retry the update
+        // once; do not delete that writer's value or spin on contention.
+        return operations.update(query, attributes: attrs)
     }
 
     @discardableResult
+    /// Replaces the value; this is not compare-and-swap. Concurrent successful
+    /// writers may replace one another. Failure logs omit account identifiers
+    /// because this generic API also stores credentials keyed by private IDs.
     public func save(_ data: Data, account: String) -> Bool {
-        var query = baseQuery(account: account)
-        SecItemDelete(query as CFDictionary)
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = accessibility
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = upsert(baseQuery(account: account), data: data)
         if status == errSecSuccess { return true }
-        if status == errSecDuplicateItem {
-            return update(baseQuery(account: account), data: data, account: account, label: "data-protection duplicate")
-        }
 
         // Fallback: App-Store / sandboxed builds without a
         // `keychain-access-groups` entitlement return
@@ -80,26 +118,14 @@ public struct KeychainHelper: Sendable {
         // persists; callers see the same API surface.
         #if os(macOS)
         if status == errSecMissingEntitlement {
-            var legacy = legacyBaseQuery(account: account)
-            SecItemDelete(legacy as CFDictionary)
-            legacy[kSecValueData as String] = data
-            legacy[kSecAttrAccessible as String] = accessibility
-            let fallback = SecItemAdd(legacy as CFDictionary, nil)
+            let fallback = upsert(legacyBaseQuery(account: account), data: data)
             if fallback == errSecSuccess { return true }
-            if fallback == errSecDuplicateItem {
-                return update(
-                    legacyBaseQuery(account: account),
-                    data: data,
-                    account: account,
-                    label: "legacy duplicate"
-                )
-            }
-            keychainErrorLog("save failed (legacy fallback) account=\(account) status=\(fallback)")
+            keychainErrorLog("save failed backend=legacy status=\(fallback)")
             return false
         }
         #endif
 
-        keychainErrorLog("save failed account=\(account) status=\(status)")
+        keychainErrorLog("save failed backend=primary status=\(status)")
         return false
     }
 
@@ -110,7 +136,14 @@ public struct KeychainHelper: Sendable {
     }
 
     public func load(account: String) -> Data? {
-        try? loadWithoutInteraction(account: account)
+        do { return try loadWithoutInteraction(account: account) }
+        catch {
+            // Compatibility for optional callers. Authority/session code must
+            // use the throwing API; this log is not evidence of absence.
+            let failure = error as NSError
+            keychainErrorLog("load unavailable domain=\(failure.domain) code=\(failure.code)")
+            return nil
+        }
     }
 
     /// Absence and unavailable authentication must remain distinct for authority
@@ -127,8 +160,7 @@ public struct KeychainHelper: Sendable {
             let context = LAContext()
             context.interactionNotAllowed = !allowInteraction
             query[kSecUseAuthenticationContext as String] = context
-            var result: AnyObject?
-            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            let (status, result) = operations.copyMatching(query)
             if status == errSecItemNotFound { return nil }
             guard status == errSecSuccess else {
                 throw OwnerIdentityKeyError.securityFailure(domain: NSOSStatusErrorDomain, code: Int(status))
@@ -136,6 +168,9 @@ public struct KeychainHelper: Sendable {
             guard let data = result as? Data else { throw HouseholdSessionError.decodingFailed }
             return data
         }
+        #if os(macOS)
+        var primaryFailure: Error?
+        #endif
         do {
             if let data = try read(baseQuery(account: account)) { return data }
         } catch {
@@ -143,12 +178,17 @@ public struct KeychainHelper: Sendable {
             guard error as? OwnerIdentityKeyError == .securityFailure(
                 domain: NSOSStatusErrorDomain, code: Int(errSecMissingEntitlement)
             ) else { throw error }
+            primaryFailure = error
             #else
             throw error
             #endif
         }
         #if os(macOS)
-        return try read(legacyBaseQuery(account: account))
+        if let data = try read(legacyBaseQuery(account: account)) { return data }
+        // An unreadable primary store plus an absent legacy item does not
+        // establish absence. Preserve the error for authority decisions.
+        if let primaryFailure { throw primaryFailure }
+        return nil
         #else
         return nil
         #endif
@@ -165,7 +205,7 @@ public struct KeychainHelper: Sendable {
         // builds under a different code signature are left orphaned (the
         // current binary can't touch them without the ACL prompt). They
         // do no harm — next save into the DP keychain owns the entry.
-        SecItemDelete(baseQuery(account: account) as CFDictionary)
+        operations.delete(baseQuery(account: account))
     }
 
     public func delete(account: String) {
@@ -182,8 +222,8 @@ public struct KeychainHelper: Sendable {
         #if os(macOS)
         query[kSecUseDataProtectionKeychain as String] = true
         #endif
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+        let (status, result) = operations.copyMatching(query)
+        guard status == errSecSuccess,
               let items = result as? [[String: Any]] else { return [] }
         return items.compactMap { $0[kSecAttrAccount as String] as? String }
     }

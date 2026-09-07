@@ -229,6 +229,7 @@ enum MainMenuSystemRole: Hashable {
 }
 
 enum MainMenuExplicitRole: Hashable {
+    case resumeEngineUpdate
     case closeWorkspace
     case logout
     case actualSize
@@ -239,6 +240,7 @@ enum MainMenuExplicitRole: Hashable {
 
     var title: String {
         switch self {
+        case .resumeEngineUpdate: return String(localized: "engineLifecycle.resume", defaultValue: "Resume update")
         case .closeWorkspace: return "Close Workspace"
         case .logout: return "Logout" + Self.ellipsis
         case .actualSize: return "Actual Size"
@@ -251,6 +253,7 @@ enum MainMenuExplicitRole: Hashable {
 
     var action: String {
         switch self {
+        case .resumeEngineUpdate: return "resumeEngineUpdate:"
         case .closeWorkspace: return "closeActiveWorkspace:"
         case .logout: return "logout:"
         case .actualSize: return "defaultFontSize:"
@@ -271,7 +274,7 @@ enum MainMenuExplicitRole: Hashable {
             return AppCommandShortcut(.character("+"), modifiers: [.command])
         case .zoomOut:
             return AppCommandShortcut(.character("-"), modifiers: [.command])
-        case .logout, .assignActiveWorkspaceToNoGroup, .newGroupForActiveWorkspace:
+        case .resumeEngineUpdate, .logout, .assignActiveWorkspaceToNoGroup, .newGroupForActiveWorkspace:
             return nil
         }
     }
@@ -317,6 +320,7 @@ extension MenuModel {
         var items: [MenuItemModel] = [
             .system(.aboutSoyeht),
             .command(.checkForUpdates),
+            .explicit(.resumeEngineUpdate),
             .separator,
             .command(.showPreferences),
             .command(.showAgentVisualPermissions),

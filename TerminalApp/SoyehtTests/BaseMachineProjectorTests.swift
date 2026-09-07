@@ -411,6 +411,7 @@ final class BaseMachineProjectorTests: XCTestCase {
         )
         let isolatedSessionStore = SessionStore(
             defaults: registryFixture.defaults,
+            credentialStorage: TestInMemoryHouseholdStorage(),
             keychainService: "com.soyeht.tests.base-machine.\(UUID().uuidString)",
             serverStore: registryFixture.store
         )

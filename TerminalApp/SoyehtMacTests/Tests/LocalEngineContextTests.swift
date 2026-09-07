@@ -25,6 +25,7 @@ final class LocalEngineContextTests: XCTestCase {
         defaults.removePersistentDomain(forName: "com.soyeht.tests.localEngineContext.\(id)")
         return SessionStore(
             defaults: defaults,
+            credentialStorage: TestCredentialStorage(),
             keychainService: "com.soyeht.mobile.tests.localEngineContext.\(id)"
         )
     }

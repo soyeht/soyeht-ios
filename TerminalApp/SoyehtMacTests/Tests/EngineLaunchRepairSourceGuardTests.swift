@@ -18,7 +18,7 @@ final class EngineLaunchRepairSourceGuardTests: XCTestCase {
             to: "openWelcomeWindow()"
         )
         let repair = try XCTUnwrap(launch.range(of: "repairLegacyOwnerEventsLog()"))
-        let reconcile = try XCTUnwrap(launch.range(of: "SMAppServiceInstaller.reconcileAtLaunch(isSetUp: isSetUp)"))
+        let reconcile = try XCTUnwrap(launch.range(of: "await verifyRunningEngineFreshness()"))
         XCTAssertLessThan(repair.lowerBound, reconcile.lowerBound)
         // Not gated on isSetUp: the file only exists on a set-up Mac, and the
         // repair reports .absent otherwise. Gating would just add a way to skip it.
@@ -39,56 +39,23 @@ final class EngineLaunchRepairSourceGuardTests: XCTestCase {
         XCTAssertTrue(helper.contains("case .failed(let code):"))
     }
 
-    /// A stale engine is only worth bouncing once the newer binary is staged
-    /// in Application Support; otherwise the restart re-runs the same old
-    /// engine and only costs the PTYs. And if staging fails there must be no
-    /// restart at all.
-    func testStaleEngineIsStagedBeforeItIsRestartedAndNeverRestartedOnStagingFailure() throws {
-        let source = try macSource("AppDelegate.swift")
-        let freshness = try slice(
-            source,
-            from: "private func verifyRunningEngineFreshness() {",
-            to: "private func repairLegacyOwnerEventsLog() {"
-        )
-        let stage = try XCTUnwrap(freshness.range(of: "try EnginePackager.install()"))
-        let restart = try XCTUnwrap(freshness.range(of: "SMAppServiceInstaller.restartStaleEngine()"))
-        XCTAssertLessThan(stage.lowerBound, restart.lowerBound)
-        XCTAssertEqual(freshness.components(separatedBy: "restartStaleEngine()").count - 1, 1)
-
-        let failure = try slice(freshness, from: "} catch {", to: "SMAppServiceInstaller.restartStaleEngine()")
-        XCTAssertTrue(failure.contains("return"), "a failed staging must leave the running engine alone")
-        XCTAssertTrue(freshness.contains("guard verdict == .stale else { return }"))
-    }
-
-    /// A staged engine is restarted by launch only when nothing is attached to
-    /// it. With sessions alive the restart is the person's decision, so the
-    /// launch path must ask the process table first, restart only inside the
-    /// `.restartNow` branch, and never from the branch that holds for the
-    /// person. Measured 2026-09-03: without this, the update to 0.1.45 ended
-    /// eight agent sessions one second after relaunch.
-    func testAStaleEngineIsRestartedByLaunchOnlyOverNoLiveSessions() throws {
-        let source = try macSource("AppDelegate.swift")
-        let freshness = try slice(
-            source,
-            from: "private func verifyRunningEngineFreshness() {",
-            to: "private func repairLegacyOwnerEventsLog() {"
-        )
-        let count = try XCTUnwrap(freshness.range(of: "SMAppServiceInstaller.liveBrokeredSessionCount"))
-        let decision = try XCTUnwrap(freshness.range(of: "EngineServiceReconciler.staleEngineAction(liveSessionCount:"))
-        let restart = try XCTUnwrap(freshness.range(of: "SMAppServiceInstaller.restartStaleEngine()"))
-        XCTAssertLessThan(count.lowerBound, decision.lowerBound, "the table is read before the rule is applied")
-        XCTAssertLessThan(decision.lowerBound, restart.lowerBound, "the rule is applied before anything restarts")
-
-        let restartBranch = try slice(freshness, from: "case .restartNow:", to: "case .holdForPerson")
-        XCTAssertTrue(restartBranch.contains("SMAppServiceInstaller.restartStaleEngine()"),
-                      "the only launch-time restart lives in the branch that measured nothing alive")
-
-        let holdStart = try XCTUnwrap(freshness.range(of: "case .holdForPerson"))
-        let holdBranch = String(freshness[holdStart.lowerBound...])
-        XCTAssertFalse(holdBranch.contains("restartStaleEngine"),
-                       "with sessions alive, launch tells the person and restarts nothing")
-        XCTAssertTrue(holdBranch.contains("EngineUpdateWindowController.present("),
-                      "holding for the person means telling them, not only the log")
+    /// A dependency guard supplements the coordinator's behavioral tests:
+    /// callers cannot stage/restart independently of its persisted decision.
+    func testEntryPointsUseTheLifecycleWithoutLegacyRestartFallbacks() throws {
+        for file in ["AppDelegate.swift", "Welcome/Bootstrap/InstallProgressView.swift", "Installer/SMAppServiceInstaller.swift"] {
+            let source = try macSource(file)
+            XCTAssertTrue(source.contains("EngineLifecycleService.run("), file)
+            for obsolete in ["EnginePackager.install(", "restartStaleEngine(", "migrateOutOfTheGraphicalSessionIfQuiet(", "kickstart("] {
+                XCTAssertFalse(source.contains(obsolete), "\(file) bypasses the replacement coordinator")
+            }
+        }
+        let ui = try macSource("Installer/EngineUpdateWindowController.swift")
+        XCTAssertTrue(ui.contains("case .legacyMigrationRequired(let original, let target):"))
+        XCTAssertTrue(ui.contains("consent: .init(original: original, target: target)"))
+        XCTAssertTrue(ui.contains("EngineLifecycleService.run(resume: resume, consent: consent)"))
+        let menu = try macSource("MainMenu/MainMenuController.swift")
+        XCTAssertTrue(menu.contains("func resumeEngineUpdate("))
+        XCTAssertTrue(menu.contains("EngineLifecycleService.run(resume: true)"))
     }
 
     /// The window that carries the decision has to be answerable. MEASURED
@@ -98,7 +65,7 @@ final class EngineLaunchRepairSourceGuardTests: XCTestCase {
     /// was readable and the answer was not reachable.
     func testEngineUpdateWindowIsSizedToItsContent() throws {
         let source = try macSource("Installer/EngineUpdateWindowController.swift")
-        XCTAssertTrue(source.contains(".frame(width: Self.contentWidth, alignment: .topLeading)"))
+        XCTAssertTrue(source.contains(".frame(width: 520)"))
         XCTAssertFalse(
             source.contains("maxHeight: .infinity"),
             "an unbounded height makes the window grow to thousands of points"

@@ -65,11 +65,28 @@ public enum EngineCompat {
     ///   - `0.1.28` repairs a legacy 0644 owner-events log instead of failing
     ///     Phase 3 silently (every Mac that paired before theyos `9ded9731`),
     ///     adopts the seeded mac-host whenever the household goes live, and
-    ///     reports the computer name as the host label. The floor moves with
-    ///     the pin on purpose: a set-up Mac only replaces its engine when the
-    ///     running one is older than this, and the 0.1.27 release was the
-    ///     one Phase 3 kept refusing.
-    public static let minSupportedEngineVersion = "0.1.30"
+    ///     reports the computer name as the host label.
+    ///   - `0.1.31` introduces the capability to own PTYs in `soyeht-ptyd`
+    ///     rather than inside the HTTP process, and the Mac lifecycle
+    ///     configures that backend explicitly when it installs the engine.
+    ///     Below this version the capability does not exist, so the PTY
+    ///     sessions owned by the engine process end when that process is
+    ///     terminated — which is what took eleven live panes on 2026-09-05.
+    ///     Stated no wider than it was proven: this is about the sessions
+    ///     that engine process owns, not about every pane or every backend.
+    ///
+    /// **What this floor does and does not do, measured.** It is the version
+    /// gate the bootstrap clients apply before talking to an engine, and the
+    /// iPhone sees it too: below the floor the phone refuses with "update
+    /// Soyeht on this Mac" instead of failing deeper in. It is NOT what
+    /// decides whether an installed engine gets replaced. That decision moved
+    /// to `EngineLifecycleService`, which compares the artifact receipt, the
+    /// loaded Mach-O image, the terminal backend and the supervisor protocol,
+    /// and asks for explicit consent before a legacy migration. An earlier
+    /// version of this comment claimed the replacement happens only when the
+    /// running engine is older than this literal; the A-to-B replacement
+    /// proved on hardware at equal semver, so the claim was false.
+    public static let minSupportedEngineVersion = "0.1.31"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to

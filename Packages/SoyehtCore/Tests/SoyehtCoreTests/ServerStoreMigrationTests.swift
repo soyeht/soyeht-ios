@@ -793,7 +793,7 @@ final class SessionStoreCallbackTests: XCTestCase {
         let suiteName = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         let keychainService = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
-        let store = SessionStore(defaults: defaults, keychainService: keychainService)
+        let store = SessionStore(defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: keychainService)
         let teardown = { defaults.removePersistentDomain(forName: suiteName) }
         return (store, teardown, keychainService)
     }
@@ -803,7 +803,7 @@ final class SessionStoreCallbackTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         let keychainService = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
         let serverStore = ServerStore(defaults: defaults)
-        let store = SessionStore(defaults: defaults, keychainService: keychainService, serverStore: serverStore)
+        let store = SessionStore(defaults: defaults, credentialStorage: InMemoryHouseholdStorage(), keychainService: keychainService, serverStore: serverStore)
         let teardown = {
             defaults.removePersistentDomain(forName: suiteName)
             KeychainHelper(service: keychainService).deleteAll()

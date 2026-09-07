@@ -31322,6 +31322,1932 @@
         }
       }
     },
+    "engine.install.incompatiblePackage": {
+      "comment": "Package validation failed before replacing an installed engine.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The bundled engine and terminal supervisor could not be verified as compatible."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível verificar a compatibilidade entre o engine incluído e o supervisor de terminais."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível verificar a compatibilidade entre o engine incluído e o supervisor de terminais."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo verificar la compatibilidad entre el motor incluido y el supervisor de terminales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La compatibilité entre le moteur inclus et le superviseur de terminaux n’a pas pu être vérifiée."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kompatibilität zwischen der mitgelieferten Engine und dem Terminal-Supervisor konnte nicht überprüft werden."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить совместимость встроенного движка и супервизора терминалов."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证随附引擎与终端管理程序的兼容性。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同梱エンジンとターミナル管理プログラムの互換性を確認できませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "포함된 엔진과 터미널 관리 프로그램의 호환성을 확인할 수 없습니다."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kompatibilitas mesin yang disertakan dengan pengelola terminal tidak dapat diverifikasi."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر التحقق من التوافق بين المحرك المضمّن ومشرف الطرفيات."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शामिल इंजन और टर्मिनल सुपरवाइज़र की संगतता की पुष्टि नहीं हो सकी।"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অন্তর্ভুক্ত ইঞ্জিন ও টার্মিনাল সুপারভাইজারের সামঞ্জস্য যাচাই করা যায়নি।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समाविष्ट इंजिन आणि टर्मिनल सुपरवायझर यांची सुसंगतता पडताळता आली नाही."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "చేర్చబడిన ఇంజిన్ మరియు టెర్మినల్ సూపర్‌వైజర్ అనుకూలతను ధృవీకరించలేకపోయాము."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "شامل کردہ انجن اور ٹرمینل سپروائزر کی مطابقت کی تصدیق نہیں ہو سکی۔"
+          }
+        }
+      }
+    },
+    "engineLifecycle.changed": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّرت عملية المحرك أثناء التحديث. الموافقة السابقة لا تسمح بإيقاف هذه العملية. ما زال التحديث معلقاً؛ استأنف للتحقق من جاهزية المحرك المقصود."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপডেটের সময় ইঞ্জিনের প্রক্রিয়া বদলেছে। আগের অনুমোদন এই প্রক্রিয়া বন্ধ করার অনুমতি দেয় না। আপডেট অপেক্ষমাণ; নির্ধারিত ইঞ্জিন প্রস্তুত কি না যাচাই করতে আবার শুরু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Engine-Prozess hat sich während des Updates geändert. Die frühere Zustimmung erlaubt nicht, diesen Prozess zu beenden. Das Update bleibt offen; setze es fort, um zu prüfen, ob die vorgesehene Engine bereit ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The engine process changed during the update. The earlier approval does not authorize stopping this process. The update remains pending; resume to check whether the intended engine is ready."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El proceso del motor cambió durante la actualización. La aprobación anterior no autoriza detener este proceso. La actualización sigue pendiente; reanuda para comprobar si el motor esperado está listo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le processus du moteur a changé pendant la mise à jour. L’autorisation précédente ne permet pas d’arrêter ce processus. La mise à jour reste en attente ; reprenez pour vérifier si le moteur attendu est prêt."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेट के दौरान इंजन प्रक्रिया बदल गई। पिछली अनुमति इस प्रक्रिया को रोकने की अनुमति नहीं देती। अपडेट लंबित है; इच्छित इंजन तैयार है या नहीं, यह जाँचने के लिए फिर शुरू करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proses mesin berubah selama pembaruan. Persetujuan sebelumnya tidak mengizinkan penghentian proses ini. Pembaruan tetap tertunda; lanjutkan untuk memeriksa apakah mesin yang dituju sudah siap."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新中にエンジンのプロセスが変わりました。以前の承認ではこのプロセスを停止できません。更新は保留中です。再開して、目的のエンジンが準備できているか確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "업데이트 중 엔진 프로세스가 바뀌었습니다. 이전 승인은 이 프로세스의 중지를 허용하지 않습니다. 업데이트는 대기 중입니다. 재개하여 대상 엔진이 준비되었는지 확인하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेटदरम्यान इंजिनची प्रक्रिया बदलली. आधीची मंजुरी ही प्रक्रिया थांबवण्याची परवानगी देत नाही. अपडेट प्रलंबित आहे; अपेक्षित इंजिन तयार आहे का ते तपासण्यासाठी पुन्हा सुरू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O processo do engine mudou durante a atualização. A aprovação anterior não autoriza encerrar este processo. A atualização continua pendente; retome para verificar se o engine esperado está pronto."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O processo do engine mudou durante a atualização. A aprovação anterior não autoriza terminar este processo. A atualização continua pendente; retome para verificar se o engine esperado está pronto."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Процесс движка изменился во время обновления. Предыдущее разрешение не позволяет остановить этот процесс. Обновление остаётся незавершённым; продолжите, чтобы проверить готовность нужного движка."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నవీకరణ సమయంలో ఇంజిన్ ప్రక్రియ మారింది. పాత అనుమతి ఈ ప్రక్రియను ఆపడానికి అనుమతించదు. నవీకరణ పెండింగ్‌లో ఉంది; కావాల్సిన ఇంజిన్ సిద్ధంగా ఉందో చూడటానికి కొనసాగించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اپ ڈیٹ کے دوران انجن کا عمل بدل گیا۔ پچھلی منظوری اس عمل کو روکنے کی اجازت نہیں دیتی۔ اپ ڈیٹ زیر التوا ہے؛ مطلوبہ انجن کی تیاری جانچنے کے لیے دوبارہ شروع کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新期间引擎进程发生了变化。之前的批准不允许停止此进程。更新仍在等待中；请恢复操作，检查目标引擎是否已就绪。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.close": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إغلاق"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "বন্ধ করুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schließen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fechar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fechar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మూసివేయి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "بند کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
+          }
+        }
+      }
+    },
+    "engineLifecycle.done": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সম্পন্ন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हो गया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesai"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "완료"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूर्ण"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concluído"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concluído"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "పూర్తయింది"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مکمل"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "engineLifecycle.incompatible": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "خدمة الطرفية قيد التشغيل غير متوافقة مع هذا التحديث. تُركت تعمل لحماية جلساتها. ثبّت تحديثاً متوافقاً للتطبيق قبل الاستئناف."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "চলমান টার্মিনাল পরিষেবা এই আপডেটের সঙ্গে সামঞ্জস্যপূর্ণ নয়। সেশন রক্ষা করতে সেটি চালু রাখা হয়েছে। আবার শুরু করার আগে সামঞ্জস্যপূর্ণ অ্যাপ আপডেট ইনস্টল করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der laufende Terminaldienst ist mit diesem Update inkompatibel. Er läuft weiter, um seine Sitzungen zu schützen. Installiere vor dem Fortsetzen ein kompatibles App-Update."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The running terminal service is incompatible with this update. It has been left running to protect its sessions. Install a compatible app update before resuming."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de terminal en ejecución es incompatible con esta actualización. Sigue funcionando para proteger sus sesiones. Instala una actualización compatible de la app antes de reanudar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de terminal en cours est incompatible avec cette mise à jour. Il reste en marche pour protéger ses sessions. Installez une mise à jour compatible de l’app avant de reprendre."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चल रही टर्मिनल सेवा इस अपडेट के साथ संगत नहीं है। सत्रों की सुरक्षा के लिए उसे चालू रखा गया है। जारी रखने से पहले संगत ऐप अपडेट इंस्टॉल करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layanan terminal yang berjalan tidak kompatibel dengan pembaruan ini. Layanan tetap berjalan untuk melindungi sesinya. Pasang pembaruan aplikasi yang kompatibel sebelum melanjutkan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稼働中のターミナルサービスはこの更新と互換性がありません。セッションを保護するため稼働を続けています。互換性のあるアプリの更新をインストールしてから再開してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 중인 터미널 서비스는 이 업데이트와 호환되지 않습니다. 세션을 보호하기 위해 계속 실행 중입니다. 호환되는 앱 업데이트를 설치한 후 재개하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चालू टर्मिनल सेवा या अपडेटशी सुसंगत नाही. सत्रे सुरक्षित ठेवण्यासाठी ती चालू ठेवली आहे. पुन्हा सुरू करण्यापूर्वी सुसंगत अॅप अपडेट स्थापित करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de terminal em execução é incompatível com esta atualização. Ele foi mantido funcionando para proteger suas sessões. Instale uma atualização compatível do app antes de retomar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de terminal em execução é incompatível com esta atualização. Foi mantido em execução para proteger as sessões. Instale uma atualização compatível da aplicação antes de retomar."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работающая служба терминала несовместима с этим обновлением. Она оставлена работающей для защиты сеансов. Перед продолжением установите совместимое обновление приложения."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నడుస్తున్న టెర్మినల్ సేవ ఈ నవీకరణకు అనుకూలంగా లేదు. సెషన్‌ల రక్షణ కోసం దాన్ని నడుస్తూనే ఉంచాం. కొనసాగించే ముందు అనుకూలమైన యాప్ నవీకరణను ఇన్‌స్టాల్ చేయండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "چلنے والی ٹرمینل سروس اس اپ ڈیٹ کے ساتھ مطابقت نہیں رکھتی۔ سیشن محفوظ رکھنے کے لیے اسے چلنے دیا گیا ہے۔ جاری کرنے سے پہلے ایپ کی مطابقت رکھنے والی اپ ڈیٹ نصب کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在运行的终端服务与此更新不兼容。为了保护会话，该服务仍在运行。请先安装兼容的应用更新，再恢复操作。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.journal": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذرت قراءة حالة التحديث المحفوظة أو كتابتها بأمان. ما زال فتح طرفيات جديدة متوقفاً مؤقتاً. استأنف لاستعادة كتابة منقطعة دون نسيان التحديث المعلق."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপডেটের সংরক্ষিত অবস্থা নিরাপদে পড়া বা লেখা যায়নি। নতুন টার্মিনাল খোলা স্থগিত আছে। অপেক্ষমাণ আপডেট ভুলে না গিয়ে বাধাপ্রাপ্ত লেখা পুনরুদ্ধার করতে আবার শুরু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der gespeicherte Update-Status konnte nicht sicher gelesen oder geschrieben werden. Das Öffnen neuer Terminals bleibt pausiert. Setze das Update fort, um einen unterbrochenen Schreibvorgang wiederherzustellen, ohne das offene Update zu vergessen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved update state could not be read or written safely. New terminal launches remain paused. Resume to recover an interrupted write without forgetting the pending update."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer o guardar de forma segura el estado de la actualización. La apertura de nuevos terminales sigue pausada. Reanuda para recuperar una escritura interrumpida sin olvidar la actualización pendiente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’état enregistré de la mise à jour n’a pas pu être lu ou écrit de manière sûre. L’ouverture de nouveaux terminaux reste suspendue. Reprenez pour récupérer une écriture interrompue sans oublier la mise à jour en attente."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेट की सहेजी गई स्थिति सुरक्षित रूप से पढ़ी या लिखी नहीं जा सकी। नए टर्मिनल खोलना अभी रुका है। लंबित अपडेट को भूले बिना अधूरी लिखाई पुनः प्राप्त करने के लिए जारी रखें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status pembaruan tersimpan tidak dapat dibaca atau ditulis dengan aman. Pembukaan terminal baru tetap dijeda. Lanjutkan untuk memulihkan penulisan yang terputus tanpa melupakan pembaruan tertunda."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存された更新状態を安全に読み書きできませんでした。新しいターミナルの起動は停止中です。再開すると、保留中の更新を保持したまま中断された書き込みを復旧します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 업데이트 상태를 안전하게 읽거나 쓰지 못했습니다. 새 터미널 열기는 일시 중지되어 있습니다. 재개하면 대기 중인 업데이트를 잊지 않고 중단된 쓰기를 복구합니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेटची जतन केलेली स्थिती सुरक्षितपणे वाचता किंवा लिहिता आली नाही. नवीन टर्मिनल उघडणे थांबवले आहे. प्रलंबित अपडेट विसरू न देता खंडित लेखन पुनर्प्राप्त करण्यासाठी पुन्हा सुरू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível ler ou gravar com segurança o estado salvo da atualização. A abertura de novos terminais continua pausada. Retome para recuperar uma gravação interrompida sem esquecer a atualização pendente."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível ler ou gravar em segurança o estado guardado da atualização. A abertura de novos terminais continua em pausa. Retome para recuperar uma gravação interrompida sem esquecer a atualização pendente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно прочитать или записать сохранённое состояние обновления. Открытие новых терминалов приостановлено. Продолжите, чтобы восстановить прерванную запись, не забывая о незавершённом обновлении."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నవీకరణకు సంబంధించిన భద్రపరిచిన స్థితిని సురక్షితంగా చదవలేకపోయాం లేదా రాయలేకపోయాం. కొత్త టెర్మినల్‌లను తెరవడం నిలిపివేయబడింది. పెండింగ్ నవీకరణను మర్చిపోకుండా మధ్యలో ఆగిన రాతను పునరుద్ధరించడానికి కొనసాగించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اپ ڈیٹ کی محفوظ حالت کو محفوظ طریقے سے پڑھا یا لکھا نہیں جا سکا۔ نئے ٹرمینل کھولنا رکا ہوا ہے۔ زیر التوا اپ ڈیٹ کو بھلائے بغیر نامکمل لکھائی بحال کرنے کے لیے دوبارہ شروع کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法安全读取或写入已保存的更新状态。新终端的启动仍已暂停。恢复操作可修复中断的写入，同时保留待完成的更新。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.legacy": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ينهي هذا التحديث الأول جميع جلسات الطرفية التي يستضيفها المحرك الحالي، بما فيها الجلسات المفتوحة أثناء ظهور هذه النافذة. احفظ عملك أولاً. بعد الانتقال، ستحافظ خدمة طرفية مستقلة على الجلسات أثناء تحديثات المحرك. إغلاق هذه النافذة يُبقي المحرك الحالي قيد التشغيل."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই প্রথম আপডেট বর্তমান ইঞ্জিনের সব টার্মিনাল সেশন শেষ করবে, এই উইন্ডো খোলা থাকাকালীন শুরু করা সেশনও এর অন্তর্ভুক্ত। আগে কাজ সংরক্ষণ করুন। স্থানান্তরের পরে একটি পৃথক টার্মিনাল পরিষেবা ইঞ্জিন আপডেটের সময় সেশন বজায় রাখবে। এই উইন্ডো বন্ধ করলে বর্তমান ইঞ্জিন চলতে থাকবে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses erste Update beendet alle Terminalsitzungen der aktuellen Engine, auch die während der Anzeige dieses Fensters geöffneten. Speichere zuerst deine Arbeit. Nach der Migration bewahrt ein unabhängiger Terminaldienst die Sitzungen bei Engine-Updates. Wenn du dieses Fenster schließt, läuft die aktuelle Engine weiter."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This first update ends all terminal sessions hosted by the current engine, including any opened while this window is visible. Save your work first. After this migration, engine updates preserve sessions through a separate terminal service. Closing this window leaves the current engine running."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta primera actualización finaliza todas las sesiones de terminal del motor actual, incluidas las abiertas mientras esta ventana esté visible. Guarda tu trabajo primero. Tras la migración, un servicio de terminal independiente conservará las sesiones durante las actualizaciones del motor. Cerrar esta ventana mantiene el motor actual en ejecución."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette première mise à jour termine toutes les sessions de terminal du moteur actuel, y compris celles ouvertes pendant que cette fenêtre est visible. Enregistrez d’abord votre travail. Après la migration, un service de terminal indépendant préservera les sessions lors des mises à jour du moteur. Fermer cette fenêtre laisse le moteur actuel en marche."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह पहला अपडेट वर्तमान इंजन के सभी टर्मिनल सत्र समाप्त करेगा, जिनमें इस विंडो के खुले रहने के दौरान शुरू किए गए सत्र भी शामिल हैं। पहले अपना काम सहेजें। स्थानांतरण के बाद, अलग टर्मिनल सेवा इंजन अपडेट के दौरान सत्र बनाए रखेगी। यह विंडो बंद करने पर वर्तमान इंजन चलता रहेगा।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembaruan pertama ini mengakhiri semua sesi terminal pada mesin saat ini, termasuk yang dibuka saat jendela ini terlihat. Simpan pekerjaan dahulu. Setelah migrasi, layanan terminal terpisah akan mempertahankan sesi saat mesin diperbarui. Menutup jendela ini membiarkan mesin saat ini tetap berjalan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この最初の更新では、現在のエンジンが管理するすべてのターミナルセッションが終了します。このウィンドウの表示中に開いたものも含まれます。先に作業を保存してください。移行後は、独立したターミナルサービスがエンジン更新時もセッションを維持します。このウィンドウを閉じると、現在のエンジンは稼働し続けます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 첫 업데이트는 현재 엔진의 모든 터미널 세션을 종료하며, 이 창이 보이는 동안 연 세션도 포함됩니다. 먼저 작업을 저장하세요. 이전 후에는 독립된 터미널 서비스가 엔진 업데이트 중에도 세션을 유지합니다. 이 창을 닫으면 현재 엔진은 계속 실행됩니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे पहिले अपडेट सध्याच्या इंजिनवरील सर्व टर्मिनल सत्रे समाप्त करेल; ही विंडो दिसत असताना उघडलेली सत्रेही यात येतात. आधी काम जतन करा. स्थलांतरानंतर स्वतंत्र टर्मिनल सेवा इंजिन अपडेटदरम्यान सत्रे टिकवेल. ही विंडो बंद केल्यास सध्याचे इंजिन चालू राहील."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta primeira atualização encerra todas as sessões de terminal do engine atual, inclusive as abertas enquanto esta janela estiver visível. Salve seu trabalho primeiro. Depois da migração, um serviço de terminal separado preservará as sessões nas atualizações do engine. Fechar esta janela mantém o engine atual funcionando."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta primeira atualização termina todas as sessões de terminal do engine atual, incluindo as abertas enquanto esta janela estiver visível. Guarde primeiro o seu trabalho. Após a migração, um serviço de terminal separado preservará as sessões nas atualizações do engine. Fechar esta janela mantém o engine atual em execução."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это первое обновление завершит все терминальные сеансы текущего движка, включая открытые, пока видно это окно. Сначала сохраните работу. После перехода независимая служба терминала будет сохранять сеансы при обновлениях движка. Закрытие этого окна оставит текущий движок работающим."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ మొదటి నవీకరణ ప్రస్తుత ఇంజిన్‌లోని అన్ని టెర్మినల్ సెషన్‌లను ముగిస్తుంది. ఈ విండో కనిపిస్తున్నప్పుడు తెరిచిన సెషన్‌లు కూడా ఇందులో ఉంటాయి. ముందుగా మీ పనిని భద్రపరచండి. తరలింపు తర్వాత ప్రత్యేక టెర్మినల్ సేవ ఇంజిన్ నవీకరణల సమయంలో సెషన్‌లను నిలుపుతుంది. ఈ విండోను మూసివేస్తే ప్రస్తుత ఇంజిన్ నడుస్తూనే ఉంటుంది."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "یہ پہلی اپ ڈیٹ موجودہ انجن کے تمام ٹرمینل سیشن ختم کرے گی، بشمول وہ جو اس ونڈو کے نظر آنے کے دوران کھولے جائیں۔ پہلے اپنا کام محفوظ کریں۔ منتقلی کے بعد ایک الگ ٹرمینل سروس انجن کی اپ ڈیٹس کے دوران سیشن برقرار رکھے گی۔ اس ونڈو کو بند کرنے سے موجودہ انجن چلتا رہے گا۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首次更新会结束当前引擎托管的所有终端会话，包括此窗口显示期间打开的会话。请先保存工作。迁移后，独立的终端服务将在引擎更新时保留会话。关闭此窗口会让当前引擎继续运行。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.migrate": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إنهاء الجلسات والتحديث"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সেশন শেষ করে আপডেট করুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sitzungen beenden und aktualisieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End sessions and update"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finalizar sesiones y actualizar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer les sessions et mettre à jour"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सत्र समाप्त कर अपडेट करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akhiri sesi dan perbarui"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セッションを終了して更新"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션 종료 후 업데이트"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सत्रे समाप्त करून अपडेट करा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encerrar sessões e atualizar"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminar sessões e atualizar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить сеансы и обновить"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "సెషన్‌లను ముగించి నవీకరించు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "سیشن ختم کرکے اپ ڈیٹ کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束会话并更新"
+          }
+        }
+      }
+    },
+    "engineLifecycle.migrated": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اكتمل الانتقال. انتهت جلسات المحرك القديم وفقاً للموافقة. تستخدم الطرفيات الجديدة الخدمة المستقلة وتستمر خلال تحديثات المحرك."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "স্থানান্তর সম্পন্ন। অনুমোদন অনুযায়ী পুরোনো ইঞ্জিনের সেশন শেষ হয়েছে। নতুন টার্মিনাল স্বাধীন পরিষেবা ব্যবহার করে এবং ইঞ্জিন আপডেটের পরেও চলতে থাকে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Migration ist abgeschlossen. Die Sitzungen der alten Engine wurden wie genehmigt beendet. Neue Terminals verwenden den unabhängigen Dienst und überstehen Engine-Updates."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The migration is complete. Sessions from the old engine ended as approved. New terminals now use the independent terminal service and survive engine updates."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La migración ha terminado. Las sesiones del motor anterior finalizaron según lo autorizado. Los nuevos terminales usan el servicio independiente y sobreviven a las actualizaciones del motor."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La migration est terminée. Les sessions de l’ancien moteur ont été fermées conformément à votre autorisation. Les nouveaux terminaux utilisent le service indépendant et survivent aux mises à jour du moteur."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्थानांतरण पूरा हुआ। अनुमति के अनुसार पुराने इंजन के सत्र समाप्त हुए। नए टर्मिनल स्वतंत्र सेवा का उपयोग करते हैं और इंजन अपडेट के बाद भी चलते रहते हैं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Migrasi selesai. Sesi mesin lama diakhiri sesuai persetujuan. Terminal baru menggunakan layanan independen dan bertahan saat mesin diperbarui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移行が完了しました。承認どおり、旧エンジンのセッションは終了しました。新しいターミナルは独立したサービスを使用し、エンジン更新後も維持されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이전이 완료되었습니다. 승인한 대로 이전 엔진의 세션이 종료되었습니다. 새 터미널은 독립된 서비스를 사용하며 엔진 업데이트 후에도 유지됩니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्थलांतर पूर्ण झाले. मंजुरीनुसार जुन्या इंजिनची सत्रे समाप्त झाली. नवीन टर्मिनल स्वतंत्र सेवा वापरतात आणि इंजिन अपडेटनंतरही चालू राहतात."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A migração terminou. As sessões do engine antigo foram encerradas conforme autorizado. Novos terminais usam o serviço independente e sobrevivem às atualizações do engine."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A migração terminou. As sessões do engine antigo foram terminadas conforme autorizado. Os novos terminais usam o serviço independente e sobrevivem às atualizações do engine."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переход завершён. Сеансы старого движка завершены с вашего разрешения. Новые терминалы используют независимую службу и сохраняются при обновлениях движка."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "తరలింపు పూర్తయింది. అనుమతించినట్లుగా పాత ఇంజిన్ సెషన్‌లు ముగిశాయి. కొత్త టెర్మినల్‌లు స్వతంత్ర సేవను ఉపయోగిస్తాయి, ఇంజిన్ నవీకరణల తర్వాత కూడా కొనసాగుతాయి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "منتقلی مکمل ہوئی۔ منظوری کے مطابق پرانے انجن کے سیشن ختم ہوگئے۔ نئے ٹرمینل آزاد سروس استعمال کرتے ہیں اور انجن کی اپ ڈیٹس کے بعد بھی چلتے رہتے ہیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "迁移已完成。旧引擎的会话已按批准结束。新终端使用独立服务，在引擎更新后仍会保留。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.onboardingPending": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أكمل تحديث المحرك أو استأنفه، ثم تابع الإعداد."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন আপডেট শেষ করুন বা আবার শুরু করুন, তারপর সেটআপ চালিয়ে যান।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schließe das Engine-Update ab oder setze es fort und fahre dann mit der Einrichtung fort."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete or resume the engine update, then continue setup."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completa o reanuda la actualización del motor y después continúa la configuración."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminez ou reprenez la mise à jour du moteur, puis poursuivez la configuration."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन अपडेट पूरा करें या फिर शुरू करें, फिर सेटअप जारी रखें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesaikan atau lanjutkan pembaruan mesin, lalu teruskan penyiapan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの更新を完了または再開してから、設定を続けてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진 업데이트를 완료하거나 재개한 후 설정을 계속하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन अपडेट पूर्ण करा किंवा पुन्हा सुरू करा, नंतर सेटअप चालू ठेवा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conclua ou retome a atualização do engine e depois continue a configuração."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conclua ou retome a atualização do engine e depois continue a configuração."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершите или продолжите обновление движка, затем продолжите настройку."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ నవీకరణను పూర్తి చేయండి లేదా కొనసాగించండి, తర్వాత సెటప్‌ను కొనసాగించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن کی اپ ڈیٹ مکمل کریں یا دوبارہ شروع کریں، پھر سیٹ اپ جاری رکھیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请完成或恢复引擎更新，然后继续设置。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.package": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذر التحقق من ملفات التحديث. لم يتم تأكيد أي محرك جديد. تحقق من أن التطبيق يتضمن حزمة المحرك كاملة، ثم استأنف التحديث."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপডেটের ফাইল যাচাই করা যায়নি। কোনো নতুন ইঞ্জিন নিশ্চিত করা হয়নি। অ্যাপে সম্পূর্ণ ইঞ্জিন প্যাকেজ আছে কি না দেখে আপডেট আবার শুরু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Dateien des Updates konnten nicht geprüft werden. Keine neue Engine wurde bestätigt. Prüfe, ob die App das vollständige Engine-Paket enthält, und setze das Update fort."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The update could not verify its files. No new engine was confirmed. Check that this app includes the complete engine package, then resume the update."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron verificar los archivos de la actualización. No se confirmó ningún motor nuevo. Comprueba que la app incluya el paquete completo del motor y reanuda la actualización."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les fichiers de la mise à jour n’ont pas pu être vérifiés. Aucun nouveau moteur n’a été confirmé. Vérifiez que l’app contient le paquet complet du moteur, puis reprenez la mise à jour."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेट की फ़ाइलों की पुष्टि नहीं हो सकी। किसी नए इंजन की पुष्टि नहीं हुई है। जाँचें कि ऐप में पूरा इंजन पैकेज है, फिर अपडेट शुरू करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkas pembaruan tidak dapat diverifikasi. Belum ada mesin baru yang dikonfirmasi. Pastikan aplikasi menyertakan paket mesin lengkap, lalu lanjutkan pembaruan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新ファイルを確認できませんでした。新しいエンジンは確認されていません。アプリに完全なエンジンパッケージが含まれていることを確認し、更新を再開してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "업데이트 파일을 확인하지 못했습니다. 새 엔진은 확인되지 않았습니다. 앱에 전체 엔진 패키지가 포함되어 있는지 확인한 뒤 업데이트를 재개하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेटच्या फाइल्स तपासता आल्या नाहीत. नवीन इंजिनची पुष्टी झालेली नाही. अॅपमध्ये संपूर्ण इंजिन पॅकेज आहे का ते तपासा आणि अपडेट पुन्हा सुरू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível verificar os arquivos da atualização. Nenhum novo engine foi confirmado. Verifique se o app inclui o pacote completo do engine e retome a atualização."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível verificar os ficheiros da atualização. Nenhum novo engine foi confirmado. Verifique se a aplicação inclui o pacote completo do engine e retome a atualização."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить файлы обновления. Новый движок не подтверждён. Убедитесь, что приложение содержит полный пакет движка, и продолжите обновление."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నవీకరణ ఫైళ్లను ధృవీకరించలేకపోయాం. కొత్త ఇంజిన్ నిర్ధారించబడలేదు. యాప్‌లో పూర్తి ఇంజిన్ ప్యాకేజీ ఉందో చూసి, నవీకరణను కొనసాగించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اپ ڈیٹ کی فائلوں کی تصدیق نہیں ہو سکی۔ کسی نئے انجن کی تصدیق نہیں ہوئی۔ دیکھیں کہ ایپ میں انجن کا مکمل پیکیج موجود ہے، پھر اپ ڈیٹ جاری کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证更新文件。尚未确认新的引擎。请检查应用是否包含完整的引擎包，然后恢复更新。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.pending": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يتم تأكيد تحديث المحرك بعد. قد يكون المحرك غير متاح. استأنف هنا للتحقق والمتابعة؛ لا حاجة لإعادة تشغيل التطبيق."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন আপডেট এখনো নিশ্চিত হয়নি। ইঞ্জিন অনুপলব্ধ থাকতে পারে। যাচাই করে এগোতে এখান থেকে আবার শুরু করুন; অ্যাপ পুনরায় চালু করার দরকার নেই।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Engine-Update ist noch nicht bestätigt. Die Engine ist möglicherweise nicht verfügbar. Setze das Update hier zum Prüfen und Fortfahren fort. Ein Neustart der App ist nicht nötig."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The engine update has not been confirmed. The engine may be unavailable. Resume here to check and continue; restarting the app is not required."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La actualización del motor aún no se ha confirmado. El motor puede no estar disponible. Reanuda aquí para comprobar y continuar; no necesitas reiniciar la app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La mise à jour du moteur n’est pas encore confirmée. Le moteur peut être indisponible. Reprenez ici pour vérifier et continuer ; inutile de redémarrer l’app."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन अपडेट की अभी पुष्टि नहीं हुई है। इंजन अनुपलब्ध हो सकता है। जाँचने और जारी रखने के लिए यहाँ से फिर शुरू करें; ऐप पुनः शुरू करना आवश्यक नहीं है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembaruan mesin belum dikonfirmasi. Mesin mungkin tidak tersedia. Lanjutkan di sini untuk memeriksa dan meneruskan; aplikasi tidak perlu dimulai ulang."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの更新はまだ確認されていません。エンジンが利用できない場合があります。ここから再開して確認し、続行してください。アプリの再起動は不要です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진 업데이트가 아직 확인되지 않았습니다. 엔진을 사용할 수 없을 수 있습니다. 여기에서 재개하여 확인하고 계속하세요. 앱을 재시작할 필요는 없습니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन अपडेटची अद्याप पुष्टी झालेली नाही. इंजिन अनुपलब्ध असू शकते. तपासून पुढे जाण्यासाठी येथून पुन्हा सुरू करा; अॅप पुन्हा चालू करण्याची गरज नाही."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A atualização do engine ainda não foi confirmada. O engine pode estar indisponível. Retome aqui para verificar e continuar; não é necessário reiniciar o app."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A atualização do engine ainda não foi confirmada. O engine pode estar indisponível. Retome aqui para verificar e continuar; não é necessário reiniciar a aplicação."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление движка ещё не подтверждено. Движок может быть недоступен. Продолжите здесь для проверки; перезапускать приложение не нужно."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ నవీకరణ ఇంకా నిర్ధారించబడలేదు. ఇంజిన్ అందుబాటులో లేకపోవచ్చు. తనిఖీ చేసి ముందుకు వెళ్లడానికి ఇక్కడ కొనసాగించండి; యాప్‌ను మళ్లీ ప్రారంభించాల్సిన అవసరం లేదు."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن کی اپ ڈیٹ کی ابھی تصدیق نہیں ہوئی۔ انجن دستیاب نہ ہو سکتا ہے۔ جانچ کر آگے بڑھنے کے لیے یہاں سے دوبارہ شروع کریں؛ ایپ کو دوبارہ چلانے کی ضرورت نہیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎更新尚未确认。引擎可能不可用。请在此恢复操作以检查并继续，无需重启应用。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.preserved": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المحرك جاهز وظلت خدمة الطرفية قيد التشغيل."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন প্রস্তুত এবং টার্মিনাল পরিষেবা চলতে থেকেছে।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Engine ist bereit und der Terminaldienst lief durchgehend weiter."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The engine is ready and the terminal service stayed running."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El motor está listo y el servicio de terminal siguió funcionando."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le moteur est prêt et le service de terminal est resté en marche."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन तैयार है और टर्मिनल सेवा चलती रही।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesin siap dan layanan terminal tetap berjalan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの準備ができ、ターミナルサービスは稼働を続けました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진이 준비되었으며 터미널 서비스는 계속 실행되었습니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन तयार आहे आणि टर्मिनल सेवा चालू राहिली."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O engine está pronto e o serviço de terminal continuou funcionando."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O engine está pronto e o serviço de terminal continuou em execução."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Движок готов, служба терминала продолжала работать."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ సిద్ధంగా ఉంది, టెర్మినల్ సేవ నడుస్తూనే ఉంది."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن تیار ہے اور ٹرمینل سروس چلتی رہی۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎已就绪，终端服务持续运行。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.ready": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جاهز"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "প্রস্তুত"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prêt"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तैयार"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siap"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "준비 완료"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就绪"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तयार"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pronto"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pronto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "సిద్ధం"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تیار"
+          }
+        }
+      },
+      "comment": "Current engine readiness without a claim about earlier sessions."
+    },
+    "engineLifecycle.restarted": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المحرك جاهز. أُعيد تشغيل خدمة الطرفية أثناء التحديث، لذا تعذر الاحتفاظ بالجلسات السابقة. يمكنك فتح طرفيات جديدة."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন প্রস্তুত। আপডেটের সময় টার্মিনাল পরিষেবা পুনরায় চালু হয়েছে, তাই আগের সেশন রক্ষা করা যায়নি। নতুন টার্মিনাল খুলতে পারেন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Engine ist bereit. Der Terminaldienst wurde während des Updates neu gestartet; frühere Sitzungen konnten deshalb nicht erhalten bleiben. Du kannst neue Terminals öffnen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The engine is ready. The terminal service restarted during the update, so earlier sessions could not be preserved. You can open new terminals."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El motor está listo. El servicio de terminal se reinició durante la actualización, por lo que no se pudieron conservar las sesiones anteriores. Puedes abrir nuevos terminales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le moteur est prêt. Le service de terminal a redémarré pendant la mise à jour ; les sessions précédentes n’ont donc pas pu être préservées. Vous pouvez ouvrir de nouveaux terminaux."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन तैयार है। अपडेट के दौरान टर्मिनल सेवा पुनः शुरू हुई, इसलिए पुराने सत्र सुरक्षित नहीं रह सके। आप नए टर्मिनल खोल सकते हैं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesin siap. Layanan terminal dimulai ulang selama pembaruan sehingga sesi sebelumnya tidak dapat dipertahankan. Anda dapat membuka terminal baru."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの準備ができました。更新中にターミナルサービスが再起動したため、以前のセッションは維持できませんでした。新しいターミナルを開けます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진이 준비되었습니다. 업데이트 중 터미널 서비스가 재시작되어 이전 세션을 보존하지 못했습니다. 새 터미널을 열 수 있습니다."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन तयार आहे. अपडेटदरम्यान टर्मिनल सेवा पुन्हा सुरू झाली, त्यामुळे पूर्वीची सत्रे टिकवता आली नाहीत. नवीन टर्मिनल उघडू शकता."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O engine está pronto. O serviço de terminal reiniciou durante a atualização, por isso as sessões anteriores não puderam ser preservadas. Você pode abrir novos terminais."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O engine está pronto. O serviço de terminal reiniciou durante a atualização, pelo que as sessões anteriores não puderam ser preservadas. Pode abrir novos terminais."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Движок готов. Служба терминала перезапустилась во время обновления, поэтому прежние сеансы не удалось сохранить. Можно открывать новые терминалы."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ సిద్ధంగా ఉంది. నవీకరణ సమయంలో టెర్మినల్ సేవ మళ్లీ ప్రారంభమైంది, కాబట్టి పాత సెషన్‌లను నిలుపుకోలేకపోయాం. కొత్త టెర్మినల్‌లను తెరవవచ్చు."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن تیار ہے۔ اپ ڈیٹ کے دوران ٹرمینل سروس دوبارہ شروع ہوئی، اس لیے پچھلے سیشن محفوظ نہیں رہ سکے۔ آپ نئے ٹرمینل کھول سکتے ہیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎已就绪。终端服务在更新期间重启，因此无法保留之前的会话。你可以打开新终端。"
+          }
+        }
+      }
+    },
+    "engineLifecycle.resume": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "استئناف التحديث"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপডেট আবার শুরু করুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update fortsetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume update"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reanudar actualización"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre la mise à jour"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेट फिर शुरू करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan pembaruan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新を再開"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "업데이트 재개"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपडेट पुन्हा सुरू करा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retomar atualização"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retomar atualização"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить обновление"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నవీకరణను కొనసాగించు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اپ ڈیٹ دوبارہ شروع کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复更新"
+          }
+        }
+      }
+    },
+    "engineLifecycle.title": {
+      "comment": "Engine replacement outcome and explicit legacy migration consent.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تحديث المحرك"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন আপডেট"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine-Update"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine update"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualización del motor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour du moteur"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन अपडेट"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembaruan mesin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの更新"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진 업데이트"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन अपडेट"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualização do engine"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualização do engine"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновление движка"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ నవీకరణ"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن کی اپ ڈیٹ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎更新"
+          }
+        }
+      }
+    },
+    "engineReplacement.creationBlocked": {
+      "comment": "A pending engine replacement blocks new execution, while existing sessions can reconnect.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم إيقاف تشغيل المحطات مؤقتًا لأن تحديث المحرك لم يُحسم بعد. استأنف التحديث للمتابعة."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন আপডেট অসম্পূর্ণ থাকায় টার্মিনাল চালু করা স্থগিত আছে। চালিয়ে যেতে আপডেট আবার শুরু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Öffnen von Terminals ist pausiert, solange das Engine-Update ungeklärt ist. Setze das Update fort, um fortzufahren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminal launch is paused while the engine update is unresolved. Resume the engine update to continue."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La apertura de terminales está pausada mientras la actualización del motor está pendiente. Reanuda la actualización para continuar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’ouverture des terminaux est suspendue tant que la mise à jour du moteur reste en attente. Reprenez la mise à jour pour continuer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन अपडेट अधूरा होने के कारण टर्मिनल शुरू करना रुका हुआ है। जारी रखने के लिए अपडेट फिर से शुरू करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peluncuran terminal dijeda karena pembaruan mesin belum selesai. Lanjutkan pembaruan untuk meneruskan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの更新が未完了のため、ターミナルの起動を一時停止しています。続行するには更新を再開してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진 업데이트가 완료되지 않아 터미널 실행이 일시 중지되었습니다. 계속하려면 업데이트를 재개하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन अपडेट अपूर्ण असल्यामुळे टर्मिनल सुरू करणे थांबवले आहे. पुढे जाण्यासाठी अपडेट पुन्हा सुरू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A abertura de terminais está pausada enquanto a atualização do engine está pendente. Retome a atualização para continuar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A abertura de terminais está em pausa enquanto a atualização do engine está pendente. Retome a atualização para continuar."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск терминалов приостановлен, пока обновление движка не завершено. Возобновите обновление, чтобы продолжить."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ నవీకరణ పూర్తి కాలేదు కాబట్టి టెర్మినల్ ప్రారంభించడం నిలిపివేయబడింది. కొనసాగించడానికి నవీకరణను తిరిగి ప్రారంభించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن کی اپ ڈیٹ نامکمل ہونے کی وجہ سے ٹرمینل کا آغاز روکا گیا ہے۔ جاری رکھنے کے لیے اپ ڈیٹ دوبارہ شروع کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎更新尚未完成，已暂停启动终端。请恢复更新以继续。"
+          }
+        }
+      }
+    },
     "installer.error.cancelled": {
       "comment": "Install error — user closed the Welcome window mid-install.",
       "extractionState": "stale",
@@ -45527,6 +47453,222 @@
         }
       }
     },
+    "pane.alert.qrUnsupportedOnAdmin.message": {
+      "comment": "Alert body explaining why the QR hand-off is unavailable on a Linux admin server.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يستخدم هذا التسليم نقطة اقتران iOS، التي لا يوفّرها سوى محرك theyOS المحلي على الـ Mac. اتصل بخادم Mac لاقتران iPhone."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই হ্যান্ড-অফ iOS পেয়ারিং এন্ডপয়েন্ট ব্যবহার করে, যা কেবল Mac-এর স্থানীয় theyOS ইঞ্জিন সরবরাহ করে। iPhone যুক্ত করতে একটি Mac সার্ভারে সংযোগ করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Übergabe nutzt den iOS-Kopplungsendpunkt, den nur die lokale theyOS-Engine des Mac bereitstellt. Verbinde einen Mac-Server, um ein iPhone zu koppeln."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This hand-off uses the iOS pairing endpoint, which only the Mac's local theyOS engine exposes. Connect a Mac server to pair an iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este traspaso usa el punto de emparejamiento de iOS, que solo expone el motor theyOS local del Mac. Conecta un servidor Mac para emparejar un iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce transfert utilise le point d’association iOS, exposé uniquement par le moteur theyOS local du Mac. Connectez un serveur Mac pour associer un iPhone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह हैंड-ऑफ़ iOS पेयरिंग एंडपॉइंट का उपयोग करता है, जिसे केवल Mac का स्थानीय theyOS इंजन उपलब्ध कराता है। iPhone जोड़ने के लिए Mac सर्वर से कनेक्ट करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serah terima ini memakai endpoint penyandingan iOS, yang hanya disediakan mesin theyOS lokal di Mac. Hubungkan server Mac untuk menyandingkan iPhone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この引き継ぎは iOS のペアリングエンドポイントを使います。これは Mac のローカル theyOS エンジンだけが公開しています。iPhone をペアリングするには Mac サーバに接続してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 이어하기는 iOS 페어링 엔드포인트를 사용하며, 이는 Mac의 로컬 theyOS 엔진만 제공합니다. iPhone을 페어링하려면 Mac 서버에 연결하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे हस्तांतरण iOS जोडणी एंडपॉइंट वापरते, जे फक्त Mac चे स्थानिक theyOS इंजिन पुरवते. iPhone जोडण्यासाठी Mac सर्व्हरशी कनेक्ट करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essa passagem usa o ponto de pareamento do iOS, que só o engine theyOS local do Mac oferece. Conecte um servidor Mac para parear um iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta passagem usa o ponto de emparelhamento do iOS, que só o motor theyOS local do Mac oferece. Ligue um servidor Mac para emparelhar um iPhone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта передача использует конечную точку сопряжения iOS, которую предоставляет только локальный движок theyOS на Mac. Подключите сервер Mac, чтобы сопрячь iPhone."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ హ్యాండ్-ఆఫ్ iOS పెయిరింగ్ ఎండ్‌పాయింట్‌ను ఉపయోగిస్తుంది, దీన్ని Mac లోని స్థానిక theyOS ఇంజిన్ మాత్రమే అందిస్తుంది. iPhone జత చేయడానికి Mac సర్వర్‌కు కనెక్ట్ చేయండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "یہ ہینڈ آف iOS پیئرنگ اینڈ پوائنٹ استعمال کرتا ہے، جسے صرف Mac کا مقامی theyOS انجن فراہم کرتا ہے۔ iPhone منسلک کرنے کے لیے Mac سرور سے جڑیں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此接力使用 iOS 配对端点，只有 Mac 上的本地 theyOS 引擎提供该端点。请连接 Mac 服务器以配对 iPhone。"
+          }
+        }
+      }
+    },
+    "pane.alert.qrUnsupportedOnAdmin.title": {
+      "comment": "Alert title when the user opens the QR hand-off menu while connected to a Linux admin theyOS server.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«المتابعة على iPhone» غير متاحة على خوادم Linux"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux সার্ভারে 'iPhone-এ চালিয়ে যান' উপলব্ধ নয়"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Auf dem iPhone fortsetzen“ ist auf Linux-Servern nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue on iPhone isn't available on Linux servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar en el iPhone no está disponible en servidores Linux"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Continuer sur l’iPhone » n’est pas disponible sur les serveurs Linux"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्वर पर 'iPhone पर जारी रखें' उपलब्ध नहीं है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan di iPhone tidak tersedia di server Linux"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「iPhone で続ける」は Linux サーバでは利用できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'iPhone에서 계속하기'는 Linux 서버에서 사용할 수 없습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्व्हरवर 'iPhone वर सुरू ठेवा' उपलब्ध नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Продолжить на iPhone» недоступно на серверах Linux"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux సర్వర్‌లలో 'iPhone లో కొనసాగించు' అందుబాటులో లేదు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux سرورز پر 'iPhone پر جاری رکھیں' دستیاب نہیں ہے"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“在 iPhone 上继续”不适用于 Linux 服务器"
+          }
+        }
+      }
+    },
     "pane.alert.workspaceUnavailable.message": {
       "comment": "Alert body — no tmux session ID on the terminal view.",
       "extractionState": "stale",
@@ -45739,6 +47881,546 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workspace دستیاب نہیں"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.button.a11y": {
+      "comment": "Accessibility label for the agent switcher button on a pane header.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اختيار وكيل آخر"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অন্য এজেন্ট বেছে নিন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anderen Agenten wählen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose another agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir otro agente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir un autre agent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दूसरा एजेंट चुनें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih agen lain"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別のエージェントを選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 에이전트 선택"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दुसरा एजंट निवडा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolher outro agente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolher outro agente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать другого агента"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మరో ఏజెంట్‌ను ఎంచుకోండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "دوسرا ایجنٹ منتخب کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择其他代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.error.title": {
+      "comment": "Alert title when switching the pane's agent fails.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر تبديل الوكيل"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এজেন্ট বদলানো যায়নি"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent konnte nicht gewechselt werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't switch agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar de agente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de changer d’agent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजेंट नहीं बदला जा सका"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak bisa mengganti agen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントを切り替えられませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "에이전트를 전환하지 못했습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजंट बदलता आला नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível trocar de agente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível mudar de agente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сменить агента"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏజెంట్‌ను మార్చలేకపోయాం"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایجنٹ تبدیل نہیں ہو سکا"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法切换代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.menu.none": {
+      "comment": "Shown in the agent switcher when no other local agent CLI is installed.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا يوجد وكيل آخر مثبّت"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অন্য কোনো এজেন্ট ইনস্টল করা নেই"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein anderer Agent installiert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No other agent installed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay otro agente instalado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun autre agent installé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोई अन्य एजेंट इंस्टॉल नहीं है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada agen lain yang terpasang"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "他のエージェントはインストールされていません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설치된 다른 에이전트가 없습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इतर कोणताही एजंट स्थापित नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum outro agente instalado"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum outro agente instalado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие агенты не установлены"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మరే ఏజెంట్ ఇన్‌స్టాల్ కాలేదు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "کوئی دوسرا ایجنٹ انسٹال نہیں ہے"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未安装其他代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.menu.title": {
+      "comment": "Title of the agent switcher menu on a pane header.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تبديل الوكيل"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এজেন্ট বদলান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wechseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar de agente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer d’agent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजेंट बदलें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti agen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントを切り替え"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "에이전트 전환"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजंट बदला"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trocar de agente"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mudar de agente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить агента"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏజెంట్‌ను మార్చు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایجنٹ تبدیل کریں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换代理"
+          }
+        }
+      }
+    },
+    "pane.header.agentSwitch.tooltip": {
+      "comment": "Tooltip on the agent switcher button; says the conversation is kept.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تبديل الوكيل (مع الاحتفاظ بهذه المحادثة)"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এজেন্ট বদলান (এই কথোপকথন থেকে যাবে)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent wechseln (behält diese Unterhaltung)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch agent (keeps this conversation)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar de agente (conserva esta conversación)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer d’agent (conserve cette conversation)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजेंट बदलें (यह बातचीत बनी रहती है)"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti agen (percakapan ini dipertahankan)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エージェントを切り替え（この会話は保持されます）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "에이전트 전환(이 대화는 유지됩니다)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एजंट बदला (हे संभाषण टिकून राहते)"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trocar de agente (mantém esta conversa)"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mudar de agente (mantém esta conversa)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить агента (разговор сохраняется)"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఏజెంట్‌ను మార్చు (ఈ సంభాషణ అలాగే ఉంటుంది)"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ایجنٹ تبدیل کریں (یہ گفتگو برقرار رہتی ہے)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换代理（保留此对话）"
           }
         }
       }
@@ -46063,6 +48745,438 @@
           "stringUnit": {
             "state": "translated",
             "value": "یہ ٹیب آن لائن جوڑی شدہ iPhone کو بھیجیں"
+          }
+        }
+      }
+    },
+    "pane.header.button.qr.tooltip.disabled": {
+      "comment": "Tooltip on the disabled Continue-on-iPhone button when connected to a Linux server.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«المتابعة على iPhone» غير متاحة على خوادم Linux"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux সার্ভারে 'iPhone-এ চালিয়ে যান' উপলব্ধ নয়"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Auf dem iPhone fortsetzen“ ist auf Linux-Servern nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue on iPhone isn't available on Linux servers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar en el iPhone no está disponible en servidores Linux"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Continuer sur l’iPhone » n’est pas disponible sur les serveurs Linux"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्वर पर 'iPhone पर जारी रखें' उपलब्ध नहीं है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan di iPhone tidak tersedia di server Linux"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「iPhone で続ける」は Linux サーバでは利用できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'iPhone에서 계속하기'는 Linux 서버에서 사용할 수 없습니다"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux सर्व्हरवर 'iPhone वर सुरू ठेवा' उपलब्ध नाही"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar no iPhone não está disponível em servidores Linux"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Продолжить на iPhone» недоступно на серверах Linux"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux సర్వర్‌లలో 'iPhone లో కొనసాగించు' అందుబాటులో లేదు"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linux سرورز پر 'iPhone پر جاری رکھیں' دستیاب نہیں ہے"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“在 iPhone 上继续”不适用于 Linux 服务器"
+          }
+        }
+      }
+    },
+    "pane.header.button.qr.tooltip.enabled": {
+      "comment": "Tooltip on the Continue-on-iPhone button when a paired iPhone can take over.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "متابعة هذا الجزء على iPhone مقترن"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এই প্যানটি যুক্ত করা iPhone-এ চালিয়ে যান"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Fenster auf einem gekoppelten iPhone fortsetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue this pane on a paired iPhone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar este panel en un iPhone emparejado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer ce volet sur un iPhone associé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस पैन को जोड़े गए iPhone पर जारी रखें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan panel ini di iPhone yang tersanding"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このペインをペアリング済みの iPhone で続ける"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 창을 페어링된 iPhone에서 계속하기"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे पेन जोडलेल्या iPhone वर सुरू ठेवा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar esta pane num iPhone pareado"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar este painel num iPhone emparelhado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить эту панель на сопряжённом iPhone"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఈ పేన్‌ను జత చేసిన iPhone లో కొనసాగించండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اس پین کو منسلک iPhone پر جاری رکھیں"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在已配对的 iPhone 上继续此窗格"
+          }
+        }
+      }
+    },
+    "pane.header.contextMenu.messaging": {
+      "comment": "Right-click menu item on a pane header that opens agent communication controls.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الرسائل والحظر…"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "বার্তা ও ব্লক…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachrichten & Blockierungen …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messaging & Blocks…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensajes y bloqueos…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages et blocages…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संदेश और ब्लॉक…"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pesan & Pemblokiran…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージとブロック…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메시지 및 차단…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संदेश आणि ब्लॉक…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensagens e bloqueios…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensagens e bloqueios…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сообщения и блокировки…"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "సందేశాలు & బ్లాక్‌లు…"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "پیغامات اور بلاکس…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消息与屏蔽…"
+          }
+        }
+      }
+    },
+    "pane.header.contextMenu.orchestration": {
+      "comment": "Right-click menu item on a pane header that opens the agent role and orchestration settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الدور والتنسيق…"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ভূমিকা ও অর্কেস্ট্রেশন…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rolle & Orchestrierung …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role & Orchestration…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rol y orquestación…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rôle et orchestration…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भूमिका और ऑर्केस्ट्रेशन…"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peran & Orkestrasi…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロールとオーケストレーション…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "역할 및 오케스트레이션…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भूमिका आणि ऑर्केस्ट्रेशन…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papel e orquestração…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papel e orquestração…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Роль и оркестрация…"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "పాత్ర & ఆర్కెస్ట్రేషన్…"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "کردار اور آرکیسٹریشن…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "角色与编排…"
           }
         }
       }

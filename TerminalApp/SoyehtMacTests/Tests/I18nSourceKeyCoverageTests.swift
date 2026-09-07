@@ -9,6 +9,20 @@ import XCTest
 /// test target never links the app targets) and proves every localized literal
 /// has an entry in its owning catalog.
 ///
+/// WHAT THIS GATE DOES NOT DO — read this before trusting a green.
+///
+/// It scans for localized LOOKUPS: `String(localized:)`, `Text("key")`,
+/// `LocalizedStringResource`, `.help(…)`. It therefore proves one thing —
+/// "every key the code asks for has an entry" — and NOT the thing people
+/// assume it proves, which is "no English literal reaches a person".
+///
+/// A raw `feed(text: "Earlier terminal output was removed by retention.")`
+/// is invisible to it: there is no key to look up. Found on 2026-09-06 in
+/// `MacOSWebSocketTerminalView`, in a directory this gate did not even scan.
+/// Widening the scope fixed the second half of that problem and none of the
+/// first. [jaime] asked for the limit to be written down rather than have
+/// the widened scope read as coverage it does not provide.
+///
 /// Keys that predate the gate live in `Fixtures/i18n-code-only-keys.txt`. That
 /// allowlist may only shrink: the test fails on a new unlisted key, and it also
 /// fails when an allowlisted key is no longer referenced or now has a catalog
@@ -34,11 +48,16 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
         let regex: NSRegularExpression
     }
 
-    /// A source root (directory scanned recursively, or a single file), relative
-    /// to `TerminalApp/`, and the catalog its keys must live in.
+    /// A source root (directory scanned recursively, or a single file) and the
+    /// catalog its keys must live in.
+    ///
+    /// `path` is relative to `TerminalApp/` unless `fromRepoRoot` is set —
+    /// SoyehtCore's sources live outside that directory, and reaching them
+    /// with `../` would make the list read as if they were app sources.
     private struct Scope {
         let path: String
         let catalog: URL
+        var fromRepoRoot: Bool = false
     }
 
     // MARK: - Paths
@@ -69,6 +88,27 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
         Scope(path: "Soyeht/Settings", catalog: iOSCatalog),
         Scope(path: "SoyehtMac/Welcome", catalog: macCatalog),
         Scope(path: "SoyehtMac/PreferencesDevicesViewController.swift", catalog: macCatalog),
+        // Added 2026-09-06. `PaneGrid` was carrying eleven keys with no
+        // catalog entry — the pane header's agent switcher, the
+        // Continue-on-iPhone tooltips and the two context-menu items — so a
+        // Mac set to another language showed English in the surface a person
+        // uses most. One of them, `pane.header.agentSwitch.menu.none`, had a
+        // PORTUGUESE `defaultValue` in a repository whose source language is
+        // English, which means English itself was falling back to Portuguese.
+        Scope(path: "SoyehtMac/PaneGrid", catalog: macCatalog),
+        // `SoyehtInstance` holds zero localized lookups today, so this scope
+        // catches nothing right now. It is here for the next string added to
+        // the terminal surface, not for the ones already there — see the
+        // limitation below, which is exactly what that directory suffers from.
+        Scope(path: "SoyehtMac/SoyehtInstance", catalog: macCatalog),
+        Scope(path: "Soyeht/Terminal", catalog: iOSCatalog),
+        // `LocalTerminalStream` and its neighbours are the supervised-terminal
+        // vocabulary shared by both apps, so a missing key here would surface
+        // on Mac and iPhone at once.
+        Scope(path: "Packages/SoyehtCore/Sources/SoyehtCore/Terminal",
+              catalog: coreCatalog, fromRepoRoot: true),
+        Scope(path: "Packages/SoyehtCore/Sources/SoyehtCore/API/SoyehtAPIClient+LocalTerminals.swift",
+              catalog: coreCatalog, fromRepoRoot: true),
     ]
 
     // MARK: - Gate
@@ -81,7 +121,8 @@ final class I18nSourceKeyCoverageTests: XCTestCase {
         var unresolved: [LocalizedReference] = []
 
         for scope in Self.scopes {
-            let root = Self.terminalApp.appendingPathComponent(scope.path)
+            let base = scope.fromRepoRoot ? Self.repoRoot : Self.terminalApp
+            let root = base.appendingPathComponent(scope.path)
             let files = try swiftFiles(at: root)
             XCTAssertFalse(files.isEmpty, "Expected Swift sources at \(root.path)")
 

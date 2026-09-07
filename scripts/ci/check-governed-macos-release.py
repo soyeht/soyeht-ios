@@ -50,20 +50,20 @@ PRIVATE_KEY_MARKER = b"-----BEGIN PRIVATE KEY-----"
 # The release the shipped engine is actually pinned to. Every value here was
 # re-measured against the published artifact and the tag it was built from,
 # not carried over: the sha256 is of the DOWNLOADED
-# `theyos-engine-0.1.30-macos-arm64.tar.gz` asset (fetched from the public
+# `theyos-engine-0.1.31-macos-arm64.tar.gz` asset (fetched from the public
 # release URL, because validating the local file proves the build and not the
-# delivery), and the source and tree are what `refs/tags/v0.1.30` resolves to.
+# delivery), and the source and tree are what `refs/tags/v0.1.31` resolves to.
 #
-# Moved from 0.1.29 on 2026-09-06. The reason is the mirror image of why this
-# contract exists: `v0.1.29` was published WITHOUT the five pairing fixes that
-# passed acceptance on hardware — `git merge-base --is-ancestor` put all five
-# outside the tag — so a Mac release against that pin would have carried the
-# old behaviour under a new number. Re-measured here: the asset was downloaded
-# from the public URL and compared byte for byte against what was built.
-ENGINE_RELEASE_VERSION = "0.1.30"
-ENGINE_RELEASE_SHA256 = "ea3280aa99c95d7a176a6a13aca4133f45536d16fac65490120998d0da391a5e"
-ENGINE_RELEASE_SOURCE = "1a8e57630b49ded40d3b1a1a6a64386e4953b663"
-ENGINE_RELEASE_TREE = "ee2cc611a8341b21a80833dc68c38f6bd2517249"
+# Moved from 0.1.30 on 2026-09-07, for the release that carries the PTY
+# supervisor. This is the first bump where the PACKAGE contract moved too:
+# seven executables instead of six, plus `engine-build-info.json`. The asset
+# was downloaded from the public URL and its sha compared byte for byte
+# against what was built from the tag; the receipt inside it names the same
+# commit as ENGINE_RELEASE_SOURCE.
+ENGINE_RELEASE_VERSION = "0.1.31"
+ENGINE_RELEASE_SHA256 = "0719ae1def85026b0106e4e2f63caf67d970f33eb286b4ec642a775d47556973"
+ENGINE_RELEASE_SOURCE = "e84f998a8390abfe70a95433b7f0ab513823dbd4"
+ENGINE_RELEASE_TREE = "df0170b5e11fe30b83608548f8e06bf5a39491fb"
 
 # The regression test that pins the floor. The NAME lives here, with the rest
 # of the per-release measurements, rather than as a literal inside the check.
@@ -75,7 +75,9 @@ ENGINE_RELEASE_TREE = "ee2cc611a8341b21a80833dc68c38f6bd2517249"
 # failed on a rename that was an improvement. That is the same rigidity the
 # comment further down calls out for the refused-version literal — a value
 # that must move with the release does not belong hard-coded in the logic.
-ENGINE_RELEASE_FLOOR_TEST = "test_currentReleaseRequiresTheAdvertThatFollowsTheWindow"
+# It happened again for 0.1.31: the floor moves for the PTY supervisor, so the
+# advert name would have been a lie for the second release running.
+ENGINE_RELEASE_FLOOR_TEST = "test_currentReleaseRequiresIndependentPTYSupervisor"
 CANONICAL_SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
 

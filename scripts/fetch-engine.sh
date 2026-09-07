@@ -37,7 +37,10 @@ RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSIO
 THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR:-/tmp/theyos-engine-dist}"
 ENGINE_DEST="${THEYOS_BUILD_DIR}/theyos-engine"
 VERSION_SENTINEL="${THEYOS_BUILD_DIR}/engine-version.txt"
-REQUIRED_BINARIES=(theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject)
+HELPER_NAMES=$(python3 "${SCRIPT_DIR}/engine-helper-manifest.py" --all-files)
+RECEIPT_NAME=$(python3 "${SCRIPT_DIR}/engine-helper-manifest.py" --receipt-only)
+REQUIRED_BINARIES=()
+while IFS= read -r binary; do REQUIRED_BINARIES+=("${binary}"); done <<< "${HELPER_NAMES}"
 
 has_required_binaries() {
     for binary in "${REQUIRED_BINARIES[@]}"; do
@@ -45,7 +48,7 @@ has_required_binaries() {
             return 1
         fi
     done
-    return 0
+    python3 "${SCRIPT_DIR}/engine-artifact-receipt.py" "${ENGINE_DEST}" "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}"
 }
 
 # ── Idempotency: skip if sentinel confirms the right version is already present ─
@@ -99,8 +102,13 @@ for binary in "${REQUIRED_BINARIES[@]}"; do
         echo "       The macOS app bundle needs all engine IPC helpers." >&2
         exit 1
     fi
+done
+python3 "${SCRIPT_DIR}/engine-artifact-receipt.py" "${SCRATCH}/theyos-engine" "${SCRATCH}/${RECEIPT_NAME}"
+for binary in "${REQUIRED_BINARIES[@]}"; do
     cp "${SCRATCH}/${binary}" "${THEYOS_BUILD_DIR}/${binary}"
-    chmod +x "${THEYOS_BUILD_DIR}/${binary}"
+    if [ "${binary}" != "${RECEIPT_NAME}" ]; then
+        chmod +x "${THEYOS_BUILD_DIR}/${binary}"
+    fi
 done
 
 # Write a normalized version sentinel so future builds can skip correctly.

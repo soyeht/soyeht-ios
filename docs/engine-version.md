@@ -1,4 +1,4 @@
-# theyos-engine version — single source of truth
+# theyos-engine version — the pin, and the six files that must agree with it
 
 > If you are an agent (Claude Code, Codex, OpenCode, …) and you got here
 > because the iPhone client failed to talk to a Mac with a "wrong content
@@ -12,14 +12,31 @@
 binary is downloaded from a GitHub Release by `scripts/fetch-engine.sh`
 and embedded into the .app at build time by `scripts/embed-engine.sh`.
 
-The engine version is pinned in **one place**:
+`scripts/theyos-engine.version` is the pin the build READS — a single semver
+string (no `v` prefix), `#`-comments allowed.
 
-```
-scripts/theyos-engine.version
-```
+**It is not the only file that names the engine.** This document used to say
+the version was pinned "in one place", and that sentence cost a release round
+on 2026-09-06: `build-dmg.sh` refused the DMG because the governed contract
+still named the old version, and the doc had given no reason to look there.
+Seven files carry engine identity, and a bump that moves only the first is
+half a bump:
 
-Format: a single semver string (no `v` prefix), with optional `#`-prefixed
-comments. The matching SHA-256 must exist in `scripts/theyos-engine.sha256`.
+| file | what it carries | what happens if it lags |
+| --- | --- | --- |
+| `scripts/theyos-engine.version` | the version the build fetches | wrong binary is shipped |
+| `scripts/theyos-engine.sha256` | SHA-256 per version | `fetch-engine.sh` refuses |
+| `EngineVersion.swift` → `minSupportedEngineVersion` | the floor that triggers replacement | an updated Mac keeps the old engine forever |
+| `EngineCompatTests.swift` | the floor's regression test, pinned by NAME | the test suite goes red |
+| `scripts/ci/check-governed-macos-release.py` | version + downloaded-asset SHA + source commit + tree | **the DMG is refused** |
+| `scripts/ci/engine-safe-stages.txt` | provenance of the diagnostic stage allowlist | stages of the new engine are dropped in silence |
+| `docs/claw-install-target.md` | the pin echoed for humans | the governed contract refuses |
+
+`scripts/cross-repo-contract.sha` pins the theyos commit the vendored fixtures
+came from. It moves for its own reasons, but in practice it moves with an
+engine release — and moving it requires a ritual: prove the vendored fixture
+hashes identically to the source at the new pin BEFORE re-freezing the literal
+in `MobileClawVPNOwnerPresentSuccessWireTests.swift`.
 
 ## Apple-style: pin per release, not "always latest"
 
@@ -134,7 +151,7 @@ pinned manifest. That's how reproducibility is preserved.
 
 | File | Role |
 | ---- | ---- |
-| `scripts/theyos-engine.version` | THE pin (single source of truth) |
+| `scripts/theyos-engine.version` | THE pin the build reads — see the table above for the six files that must agree with it |
 | `scripts/theyos-engine.sha256` | Pinned SHA-256 per version |
 | `scripts/fetch-engine.sh`      | Reads the pin, downloads tarball, verifies SHA |
 | `scripts/embed-engine.sh`      | Copies the binary into `Soyeht.app/Contents/Helpers/` |

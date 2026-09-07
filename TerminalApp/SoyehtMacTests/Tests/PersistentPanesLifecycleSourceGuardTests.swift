@@ -36,7 +36,7 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
             from: "private func endEngineSessionIfNeeded() {",
             to: "\n}\n\n@MainActor\nprivate final class PaneErrorContentViewController"
         )
-        XCTAssertTrue(endEngineSession.contains("case .engineLocal(let engineConversationID) = conversation.commander"))
+        XCTAssertTrue(endEngineSession.contains("case .engineLocal(let engineConversationID, _, _) = conversation.commander"))
         XCTAssertTrue(endEngineSession.contains("DeferredEngineSessionReaper.scheduleReap("))
         XCTAssertTrue(endEngineSession.contains("paneID: conversationID"))
         // Must NOT delete inline — that would kill the session before the undo
@@ -57,7 +57,8 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         )
         XCTAssertTrue(performReap.contains("EngineSessionTTYRegistry.remove(conversationID: engineConversationID)"))
         XCTAssertTrue(performReap.contains("LocalEngineContext.resolve()"))
-        XCTAssertTrue(performReap.contains("SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)"))
+        XCTAssertTrue(performReap.contains("SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, sessionInstanceId: sessionInstanceID, context: context)"))
+        XCTAssertTrue(performReap.contains("cancelLocalTerminalCreate(conversationId: engineConversationID, intentId: creationIntentID, context: context)"))
         XCTAssertTrue(performReap.contains("PaneStatusTracker.shared.prepareForAgentLaunch(paneID: paneID)"))
         XCTAssertFalse(performReap.contains("quarantineAgentLaunchOwnership(paneID: paneID)"))
 
@@ -83,7 +84,7 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         // The reap only runs after sleeping the undo window.
         let scheduleReap = try slice(
             source,
-            from: "static func scheduleReap(engineConversationID: String, paneID: Conversation.ID) {",
+            from: "static func scheduleReap(engineConversationID:",
             to: "\n    }\n"
         )
         XCTAssertTrue(scheduleReap.contains("Task.sleep(nanoseconds: Self.undoWindowNanoseconds)"))
@@ -142,7 +143,7 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         let restore = try slice(
             source,
             from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false) {",
-            to: "guard case .failed(transient: true) = outcome"
+            to: "guard case .failed(transient: true, message: _) = outcome"
         )
         XCTAssertTrue(restore.contains("EngineAttachGate.isInFlight(conversationID)"))
         XCTAssertTrue(restore.contains("EngineAttachGate.begin(conversationID)"))

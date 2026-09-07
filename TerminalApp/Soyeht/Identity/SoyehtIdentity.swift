@@ -177,11 +177,23 @@ final class SoyehtIdentity: ObservableObject {
             } else {
                 updateState(.inactive)
             }
-        } catch {
+        } catch HouseholdSessionError.decodingFailed {
             identityLogger.error(
-                "soyeht_diag identity_decode_failed error=\(String(describing: error), privacy: .public)"
+                "soyeht_diag identity_decode_failed"
             )
             updateState(.unavailable(.decodingFailed))
+        } catch {
+            let failure = error as NSError
+            var domain = failure.domain
+            var code = failure.code
+            if case let OwnerIdentityKeyError.securityFailure(securityDomain, securityCode) = error {
+                domain = securityDomain
+                code = securityCode
+            }
+            identityLogger.error(
+                "soyeht_diag identity_storage_unavailable domain=\(domain, privacy: .public) code=\(code, privacy: .public)"
+            )
+            updateState(.unavailable(.storageUnavailable))
         }
     }
 

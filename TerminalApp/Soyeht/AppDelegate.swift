@@ -944,6 +944,8 @@ private enum DebugLocalStateReporter {
             householdDescription = "household=unavailable reason=protected_data_unavailable"
         case .unavailable(.decodingFailed):
             householdDescription = "household=unavailable reason=decoding_failed"
+        case .unavailable(.storageUnavailable):
+            householdDescription = "household=unavailable reason=storage_unavailable"
         }
 
         let legacyMacCount = PairedMacsStore.shared.macs.count

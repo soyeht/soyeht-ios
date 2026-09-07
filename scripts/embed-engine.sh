@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copies theyos engine support binaries into Soyeht.app/Contents/Helpers/
-# and the SMAppService LaunchAgent plist into Soyeht.app/Contents/Library/LaunchAgents/.
+# and the engine LaunchAgent plists into Soyeht.app/Contents/Library/LaunchAgents/.
 # Release builds fail if any required helper is missing.
 #
 # Lookup order for the binary:
@@ -22,12 +22,18 @@ LAUNCH_AGENTS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Library/LaunchAgents"
 LAUNCH_AGENT_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist"
 LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
 # Developer-build LaunchAgent (com.soyeht.engine.dev). Both plists are embedded
-# in every build; SMAppService registers only the one matching the running
-# bundle id (see SMAppServiceInstaller / SoyehtInstallProfile), so the dev and
+# in every build; EngineLifecycleService prepares and loads only the one matching
+# the running bundle id (SoyehtInstallProfile), so the dev and
 # shipping engines never share a launchd job or any on-disk state.
 LAUNCH_AGENT_DEV_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.dev.plist"
 LAUNCH_AGENT_DEV_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.dev.plist"
-REQUIRED_HELPERS=(vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject)
+HELPER_NAMES=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --support-only)
+RECEIPT_NAME=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --receipt-only)
+RECEIPT_BUNDLE_PATH=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --bundle-receipt-path)
+RECEIPT_DEST="${CODESIGNING_FOLDER_PATH}/${RECEIPT_BUNDLE_PATH}"
+RECEIPT_CHECKER="${SRCROOT}/../scripts/engine-artifact-receipt.py"
+REQUIRED_HELPERS=()
+while IFS= read -r helper; do REQUIRED_HELPERS+=("${helper}"); done <<< "${HELPER_NAMES}"
 
 has_required_helpers() {
     for helper in "${REQUIRED_HELPERS[@]}"; do
@@ -35,7 +41,7 @@ has_required_helpers() {
             return 1
         fi
     done
-    return 0
+    [ -f "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}" ]
 }
 
 has_required_engine_bundle() {
@@ -106,6 +112,7 @@ if ! has_required_helpers; then
     done
 fi
 
+python3 "${RECEIPT_CHECKER}" "${ENGINE_SRC}" "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}"
 mkdir -p "${HELPERS_DIR}"
 cp "${ENGINE_SRC}" "${ENGINE_DEST}"
 chmod +x "${ENGINE_DEST}"
@@ -145,4 +152,13 @@ for helper in "${REQUIRED_HELPERS[@]}"; do
     sign_helper "${HELPERS_DIR}/${helper}"
 done
 
+# codesign changes file bytes while preserving linked image identity. Input
+# was verified before copying; bind the receipt to the signed build output.
+# Helpers is a nested-code directory: JSON belongs to sealed resources. Remove
+# the earlier layout only from this build output, including incremental builds.
+rm -f "${HELPERS_DIR}/${RECEIPT_NAME}"
+mkdir -p "$(dirname "${RECEIPT_DEST}")"
+python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}" \
+    --after-codesign "${RECEIPT_DEST}"
+python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${RECEIPT_DEST}"
 echo "Embedded engine helpers → ${HELPERS_DIR}"

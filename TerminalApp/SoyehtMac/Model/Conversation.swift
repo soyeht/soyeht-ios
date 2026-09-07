@@ -14,7 +14,21 @@ import Foundation
 enum CommanderState: Codable, Hashable {
     case mirror(instanceID: String)
     case native(pid: Int32)
-    case engineLocal(conversationID: String)
+    case engineLocal(conversationID: String, sessionInstanceID: String? = nil, creationIntentID: String? = nil)
+
+    var engineSessionInstanceID: String? {
+        guard case .engineLocal(_, let instance, _) = self else { return nil }
+        return instance
+    }
+
+    var engineCreationIntentID: String? {
+        guard case .engineLocal(_, _, let intent) = self else { return nil }
+        return intent
+    }
+
+    var requiresEngineSessionPreservation: Bool {
+        engineSessionInstanceID != nil || engineCreationIntentID != nil
+    }
 
     static let placeholderMirror = CommanderState.mirror(instanceID: "pending")
     static let agentSwitchRecoveryMirror = CommanderState.mirror(

@@ -1,5 +1,11 @@
 # Sessões que sobrevivem à troca do engine
 
+**Estado em 2026-09-07:** implementação e aceite no Dev concluídos, incluindo
+migração pela UI, controles de falha, pane real, troca A→B e recuperação após
+ausência prolongada. O [registro de aceite](pty-supervisor-acceptance.md) delimita
+as provas e artefatos. Este plano conserva a sequência e o diagnóstico original;
+a entrega pública e a virada de produção (F5) permanecem separadas.
+
 **Objetivo, em uma frase:** trocar o engine passa a ser desconectar e reconectar
 um transporte, em vez de matar todos os terminais.
 
@@ -185,7 +191,8 @@ forma convincente":
 - **nonce aleatório em variável NÃO exportada**, atribuído só antes da falha
   (`X=1` é fraco: um roteiro de recuperação pode reexecutá-lo);
 - **PID/start-time do processo longo e do TUI**, além do shell;
-- **PGID/SID e foreground process group**, para provar job control;
+- **PGID e foreground process group**, para provar job control. `ps -o sess=`
+  devolve zero neste macOS; esse campo não serve como prova de SID;
 - **desafio de I/O depois do reattach** — processo vivo pode estar travado;
 - **saída numerada e determinística durante a ausência**, conferida por
   conteúdo e intervalo no replay, não "apareceu alguma coisa";
@@ -196,7 +203,9 @@ Matriz de falha: `bootout` da label exata do engine **e** SIGKILL direto no
 engine (esse segundo faltava no meu plano). Manter o engine fora **além da
 janela de retry atual** e então restaurar — a pane tem que voltar sozinha.
 
-**Aceite:** o roteiro roda no Dev. Controle negativo mede o baseline de hoje; se
+**Aceite:** todos os itens acima são medidos no Dev, incluindo nonce, desafio
+de I/O e conteúdo produzido durante a ausência. `identity_only` não fecha F0
+nem o aceite do supervisor. Controle negativo mede o baseline de hoje; se
 não der 0%, o relatório mostra o número real e eu investigo — não forço a
 expectativa.
 
@@ -240,7 +249,13 @@ um emulador VT. Ou defino essa capability no WS agora, ou reduzo a promessa do
 aceite. **Rotação deliberada e "scrollback integral para sempre" não podem ser
 garantias simultâneas.**
 
-### F1 — O supervisor existe e serve, sem ninguém usar
+### F1a — Log recuperável, independente do socket
+Formato segmentado, versionado, recuperação por registro e retenção por
+segmento inteiro. O ensaio usa arquivos reais em diretórios temporários e
+falhas dirigidas em cada corte de append e entre remoções de retenção. Não
+depende de launchd nem de PTY. O formato e sua prova vêm antes do serviço.
+
+### F1b — O supervisor existe e serve, sem ninguém usar
 Novo binário `soyeht-ptyd`, LaunchAgent próprio, socket UDS versionado.
 Implementa `create/get/list/attach/write/resize/close` sobre o `PtyManager`
 movido, **com replay e rotação junto** (não dá para separar).
@@ -257,20 +272,28 @@ Cada sessão tem um dono escolhido uma vez. Sem "shadow traffic" replicando
 create/write/resize nos dois caminhos. `terminal-rs` continua biblioteca dos
 dois executáveis — não há fork de código.
 
-### F2 — O engine passa a falar com o supervisor
-`state.pty_mgr` vira um cliente do UDS. Os endpoints HTTP/WS do engine
-permanecem iguais para o cliente Mac — muda só quem executa por baixo.
-**Aceite E2E no Dev:** abrir 3 panes, `launchctl bootout` **só na label do
-engine**, e depois do reattach: mesmo PID/start-time/TTY, variável só em memória
-preservada (`X=1; echo $X`), `jobs` preservado, saída produzida durante a
-ausência aparece no replay.
-
-### F2.5 — Contrato e reconexão do Mac (ANTES de ativar o F2)
+### F2a — Contrato e reconexão do Mac (antes da ativação)
 [jaime] recomendou partir o F3: o contrato e a preparação do cliente vêm antes
 da ativação, e o acabamento depois. Motivo: se o aceite do F2 usar panes reais,
 ele depende da reconexão correta do app — e não se ativa rota nova com fallback
 destrutivo ainda possível. Aqui entram `session_instance_id` nas respostas e
 precondições, e o retry/fallback do Mac revisados.
+
+Mutação no backend novo exige a precondição que identifica a instância.
+Cliente sem ela é recusado; nunca há fallback silencioso para matar a sessão
+atual. Leituras compatíveis podem continuar. O backend legado, se habilitado
+durante a transição, é explícito e não possui a garantia do supervisor.
+
+Inclui atualizar e verificar as fixtures entre repositórios, o pin em
+`scripts/cross-repo-contract.sha` e os literais governados de release, com
+comparação byte a byte contra a fonte. Mudar versão não substitui essa prova.
+
+### F2b — O engine passa a falar com o supervisor
+O engine usa o UDS para sessões locais; PTYs de VM continuam no gestor antigo.
+As URLs permanecem, mas o contrato acrescenta identidade e precondições.
+**Aceite E2E no Dev:** abrir 3 panes, `launchctl bootout` **só na label do
+engine**, e depois do reattach: mesmo PID/start-time/TTY, nonce não exportado
+preservado, `jobs` preservado e conteúdo numerado da ausência no replay.
 
 ### F3 — O cliente Mac aguenta a ausência (acabamento)
 `EnginePaneAttacher`/`MacOSWebSocketTerminalView` distinguem transporte de
@@ -302,8 +325,11 @@ descarta só a cauda incompleta, e retenção que remove segmentos fechados em v
 de deslocar bytes válidos in-place. O F4 endurece e testa; ele não pode ser o
 lugar onde a garantia nasce.
 
-E a garantia precisa ser dita com precisão: **morte do processo ≠ queda de
-energia**. `write_all` aceito não é durabilidade no dispositivo (`sync_all`).
+Para o scrollback, **morte do processo ≠ queda de energia**: `write_all` aceito
+não é durabilidade no dispositivo. Tickets de execução têm contrato mais forte:
+registro consumido sincronizado, rename e diretório sincronizado antes de spawn
+ou confirmação de cancelamento. Os detalhes e os limites físicos conjuntos
+estão em `pty-supervisor-f1-design.md`; não há sincronização por byte de saída.
 
 ### F5 — A virada em produção
 Ver §5.
@@ -352,8 +378,8 @@ primeira.
 
 ### Sequência (recomendação do [jaime], adotada)
 
-`F0` → `F1` com identidade, replay, limites e formato de log definidos + prova
-real por UDS → `F2.5` contrato/reconexão do Mac → `F2` ativado no Dev → `F3`
+`F0` → `F1a` log com falhas dirigidas → `F1b` prova real por UDS →
+`F2a` contrato/reconexão do Mac → `F2b` ativado no Dev → `F3`
 completo + `F4` com falhas dirigidas → `F5` só por drenagem, ou descarte
 escolhido expressamente pelo Caio.
 
@@ -361,8 +387,9 @@ escolhido expressamente pelo Caio.
 
 ## 6. E2E é o critério de aceite
 
-Regra: **nenhuma fatia é dada como pronta por teste unitário verde.** Cada uma
-tem seu ensaio no Dev, medido, com controle negativo.
+Regra: **nenhuma integração é dada como pronta por teste unitário verde.**
+F1a tem ensaio próprio de arquivos e falhas dirigidas; o serviço e o produto
+exigem processo real e ensaio no Dev, medido, com controle negativo.
 
 Ensaio completo antes de encostar em produção:
 

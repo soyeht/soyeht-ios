@@ -75,30 +75,6 @@ extension SoyehtAPIClient {
 
     // MARK: - Workspaces (tmux session management)
 
-    /// List all workspaces for a container.
-    /// `GET /api/v1/terminals/{container}/workspaces`
-    func listWorkspaces(container: String, context: ServerContext) async throws -> [SoyehtWorkspace] {
-        let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(
-                path: "/api/v1/terminals/\(container)/workspaces",
-                context: context
-            )
-        }
-        try checkResponse(response, data: data)
-        if let wrapped = try? decoder.decode(WorkspacesContextWrapper.self, from: data) {
-            return wrapped.data
-        } else if let array = try? decoder.decode([SoyehtWorkspace].self, from: data) {
-            return array
-        }
-        throw APIError.decodingError(
-            DecodingError.dataCorrupted(
-                .init(codingPath: [], debugDescription: "Cannot decode workspaces response")
-            )
-        )
-    }
-
-    private struct WorkspacesContextWrapper: Decodable { let data: [SoyehtWorkspace] }
-
     /// Create a new workspace (creates tmux session internally).
     /// `POST /api/v1/terminals/{container}/workspaces`
     func createNewWorkspace(container: String, name: String? = nil, context: ServerContext) async throws -> SoyehtWorkspace {
@@ -149,27 +125,6 @@ extension SoyehtAPIClient {
 
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
-    }
-
-    // MARK: - Workspace (create or resume)
-
-    /// Create or resume a workspace, optionally targeting a specific tmux session.
-    /// `POST /api/v1/terminals/{container}/workspace`
-    /// Body (optional): `{ "session": "session-name" }`
-    func createWorkspace(container: String, session sessionName: String? = nil, context: ServerContext) async throws -> WorkspaceResponse {
-        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/workspace")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        if let sessionName {
-            request.httpBody = try JSONEncoder().encode(["session": sessionName])
-        }
-
-        let (data, response) = try await session.data(for: request)
-        try checkResponse(response, data: data)
-        return try decoder.decode(WorkspaceResponse.self, from: data)
     }
 
     // MARK: - WebSocket URL Builder
