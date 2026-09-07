@@ -783,8 +783,25 @@ def validate_terminal_contract_checkout(checkout: Path) -> str:
             ["git", "-C", str(checkout), "rev-parse", "HEAD"],
             capture_output=True, text=True, timeout=60, check=False,
         )
+        # NOT `--untracked-files=no`. That flag hid every file git does not
+        # track, and `.cargo/config.toml` is one of them: [jaime] added it to
+        # an otherwise clean checkout on the pinned commit, this validator
+        # accepted the identical root@SHA, and the build then compiled with an
+        # environment variable that came from a file nobody had committed.
+        # "Exactly the tree this release pins" has to mean the inputs too.
+        #
+        # Ignored build outputs need no exception written here: git already
+        # makes the distinction. `admin/rust/target/` is in `.gitignore` and
+        # never appears; an untracked source or config file does.
+        #
+        # `--untracked-files=all` is EXPLICIT for a reason [jaime] measured:
+        # dropping the flag entirely leaves the answer to `status.showUntrackedFiles`,
+        # and a repository (or a person) with that set to `no` gets an empty
+        # porcelain and a gate that quietly stops asking. A display preference
+        # must not decide whether a release is allowed.
         dirty = subprocess.run(
-            ["git", "-C", str(checkout), "status", "--porcelain", "--untracked-files=no"],
+            ["git", "-C", str(checkout), "status", "--porcelain",
+             "--untracked-files=all"],
             capture_output=True, text=True, timeout=120, check=False,
         )
     except (OSError, subprocess.SubprocessError) as error:
@@ -806,12 +823,21 @@ def validate_terminal_contract_checkout(checkout: Path) -> str:
         f"{ENGINE_RELEASE_SOURCE}; a contract run against another tree says nothing "
         "about the engine being shipped",
     )
-    modified = [line for line in dirty.stdout.splitlines() if line.strip()]
+    entries = [line for line in dirty.stdout.splitlines() if line.strip()]
+    untracked = [line for line in entries if line.startswith("??")]
+    modified = [line for line in entries if not line.startswith("??")]
     require(
         not modified,
         f"the engine checkout at {checkout} has {len(modified)} modified tracked "
         f"file(s) (first: {modified[0].strip() if modified else ''}); the contract "
         "would exercise sources that are not in the pinned release",
+    )
+    require(
+        not untracked,
+        f"the engine checkout at {checkout} carries {len(untracked)} untracked, "
+        f"non-ignored file(s) (first: {untracked[0].strip() if untracked else ''}); "
+        "an uncommitted `.cargo/config.toml` alone can inject build environment "
+        "the release never saw, on a tree whose commit looks identical",
     )
     return f"{toplevel.stdout.strip()}@{observed}"
 
@@ -854,9 +880,18 @@ def validate_terminal_contract_gate(files: Mapping[str, str]) -> None:
     track, so an assertion placed there would itself never run. A dead gate
     guarding a dead gate is the joke this file keeps failing to stop telling.
 
-    Text in the right order is not execution, so this is only half the guard;
-    `run_terminal_contract_gate_controls` runs the builder and proves the
-    refusals actually stop it.
+    Text in the right order is not execution, and these assertions do not
+    pretend otherwise. [jaime] wrapped the existing call in `if false; then …
+    fi` and every check below still passed: the call is present, at column
+    zero, before `hdiutil create`, and unreachable. Column zero is not top
+    level in Bash.
+
+    So this is the cheap half. `run_builder_path_controls` is the other one:
+    it RUNS this script, with the checker refusing, and fails the release if
+    signing is reached anyway. The naming matters — an earlier version of this
+    comment credited a control that only exercised the extracted function with
+    proving something about the script, which is the sort of claim this whole
+    file exists to stop.
     """
     build_dmg = files[BUILD_DMG]
     require_once(
@@ -1539,21 +1574,47 @@ def run_terminal_contract_gate_controls() -> int:
                     lambda: dirty_checkout(good),
                     "the pinned commit with an edited tracked source file",
                 ),
+                (
+                    "untracked-cargo-config",
+                    lambda: untracked_build_input(good),
+                    "the pinned commit, clean by tracked files, carrying an "
+                    "uncommitted .cargo/config.toml that injects build env",
+                ),
+                (
+                    "untracked-hidden-by-git-config",
+                    lambda: hidden_untracked(good),
+                    "the same uncommitted .cargo/config.toml, with the repo's "
+                    "status.showUntrackedFiles set to no — a display preference "
+                    "must not switch the gate off",
+                ),
+                (
+                    "ignored-output-is-not-dirt",
+                    lambda: ignored_output(good),
+                    "ACCEPTS a gitignored build output: refusing target/ would "
+                    "make the gate impossible to satisfy after any build",
+                ),
             )
             for name, build, why in cases:
                 target = build()
+                expect_refusal = name != "ignored-output-is-not-dirt"
                 try:
                     validate_terminal_contract_checkout(target)
                 except ContractError:
+                    if not expect_refusal:
+                        raise ContractError(
+                            f"checkout control refused what it must accept: {name} — {why}")
                     passed += 1
                     print(f"  ok  refused: {name} — {why}")
                     continue
-                raise ContractError(f"terminal contract checkout control survived: {name}")
+                if expect_refusal:
+                    raise ContractError(f"terminal contract checkout control survived: {name}")
+                passed += 1
+                print(f"  ok  accepted: {name} — {why}")
         finally:
             ENGINE_RELEASE_SOURCE = original
             (good / "source.rs").write_text("fn main() {} // 0\n")
 
-    print(f"terminal contract checkout controls: {passed}/5 shapes judged correctly")
+    print(f"terminal contract checkout controls: {passed}/{1 + len(cases)} shapes judged correctly")
     return passed
 
 
@@ -1562,65 +1623,183 @@ def plain_directory(path: Path) -> Path:
     return path
 
 
+def hidden_untracked(root: Path) -> Path:
+    """[jaime]'s follow-up: the untracked file, hidden by a git preference."""
+    untracked_build_input(root)
+    subprocess.run(["git", "-C", str(root), "config", "status.showUntrackedFiles", "no"],
+                   check=True, capture_output=True)
+    return root
+
+
+def untracked_build_input(root: Path) -> Path:
+    """[jaime]'s case: a build input that is not in the commit.
+
+    `.cargo/config.toml` with an `[env]` block reaches the compiler. The tree
+    reports the pinned commit and no modified tracked file, and the binary that
+    comes out is not the one the release describes.
+    """
+    (root / "source.rs").write_text("fn main() {} // 0\n")
+    config = root / ".cargo"
+    config.mkdir(exist_ok=True)
+    (config / "config.toml").write_text('[env]\nSOYEHT_REVIEW_INPUT = "from_untracked_config"\n')
+    return root
+
+
+def ignored_output(root: Path) -> Path:
+    """A build output the repository ignores is not contamination.
+
+    Refusing it would make the gate unsatisfiable after any build, and a gate
+    nobody can satisfy is a gate everybody routes around.
+    """
+    subprocess.run(["git", "-C", str(root), "config", "--unset", "status.showUntrackedFiles"],
+                   check=False, capture_output=True)
+    for path in (root / ".cargo" / "config.toml",):
+        path.unlink(missing_ok=True)
+    (root / ".cargo").rmdir() if (root / ".cargo").is_dir() else None
+    (root / "source.rs").write_text("fn main() {} // 0\n")
+    (root / ".gitignore").write_text("target/\n")
+    subprocess.run(["git", "-C", str(root), "add", ".gitignore"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(root), "commit", "-qm", "ignore target"],
+                   check=True, capture_output=True)
+    global ENGINE_RELEASE_SOURCE
+    ENGINE_RELEASE_SOURCE = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=True).stdout.strip()
+    (root / "target").mkdir(exist_ok=True)
+    (root / "target" / "artifact.bin").write_bytes(b"build output\n")
+    return root
+
+
 def dirty_checkout(root: Path) -> Path:
     """The pinned commit, with a tracked source edited under it."""
     (root / "source.rs").write_text("fn main() { /* edited after the tag */ }\n")
     return root
 
 
-def run_builder_refusal_controls() -> int:
-    """The builder must ABORT on a refusal, not carry on past it.
+BUILDER_HELPERS = ("theyos-engine", "soyeht-ptyd", "vmrunner_macos_ipc", "store-ipc",
+                   "terminal-ipc", "theyos-ssh", "theyos-provision-inject")
 
-    The checkout rules refusing is one property; the release script actually
-    stopping is another, and this repository has already shipped a loop that
-    swallowed a failure and declared its step complete. So the real
-    `run_terminal_contract` is extracted from `build-dmg.sh` unchanged and run
-    under `set -euo pipefail`, with a marker after it that must never print.
+
+def builder_sandbox(root: Path, *, checker_accepts: bool, unreachable: bool) -> None:
+    """A disposable tree shaped enough for the REAL `build-dmg.sh` to run in."""
+    scripts = root / "scripts"
+    (scripts / "ci").mkdir(parents=True)
+
+    text = (REPO_ROOT / BUILD_DMG).read_text()
+    if unreachable:
+        # [jaime]'s mutation: same text, same column zero, never executed.
+        text = text.replace("\nrun_terminal_contract\n",
+                            "\nif false; then\nrun_terminal_contract\nfi\n", 1)
+        require("if false; then" in text, "the builder mutation did not apply")
+    (scripts / "build-dmg.sh").write_text(text)
+
+    def executable(path: Path, body: str) -> None:
+        path.write_text(body)
+        path.chmod(0o755)
+
+    executable(scripts / "ci" / "check-governed-macos-release.py",
+               "#!/usr/bin/env python3\nimport os, sys\n"
+               "open(os.environ['CONTROL_TRACE'], 'a').write('checker\\n')\n"
+               f"sys.exit({0 if checker_accepts else 1})\n")
+    executable(scripts / "engine-helper-manifest.py",
+               "#!/usr/bin/env python3\nimport sys\n"
+               "if '--bundle-receipt-path' in sys.argv:\n"
+               "    print('Contents/Resources/Engine/engine-build-info.json')\n"
+               "else:\n"
+               f"    print('\\n'.join({list(BUILDER_HELPERS)!r}))\n")
+    executable(scripts / "engine-artifact-receipt.py", "#!/usr/bin/env python3\n")
+    (scripts / "theyos-engine.version").write_text("0.0.0\n")
+    (scripts / "ExportOptions.plist").write_text("<plist/>\n")
+    (root / ".env.release").write_text(
+        'NOTARIZATION_PROFILE=control\n'
+        'DEVELOPER_ID_APPLICATION="Developer ID Application: Control (TEAMID0000)"\n'
+        'TEAM_ID=TEAMID0000\n')
+
+    app = root / "Products/Soyeht.xcarchive/Products/Applications/Soyeht.app"
+    (app / "Contents/Helpers").mkdir(parents=True)
+    for helper in BUILDER_HELPERS:
+        binary = app / "Contents/Helpers" / helper
+        binary.write_bytes(b"binary\n")
+        binary.chmod(0o755)
+    agents = app / "Contents/Library/LaunchAgents"
+    agents.mkdir(parents=True)
+    (agents / "com.soyeht.engine.plist").write_text("<plist/>\n")
+
+
+def run_builder_path_controls() -> int:
+    """Run the REAL `build-dmg.sh` and prove the gate stops it.
+
+    The first version of this extracted `run_terminal_contract` and exercised
+    it in isolation. That proves the FUNCTION refuses; it says nothing about
+    whether the release path reaches it. [jaime] showed the difference by
+    wrapping the existing call in `if false; then … fi`: the textual gate
+    accepted it — column zero is not top level in Bash — and the extracted
+    control still passed, because it supplied its own call.
+
+    So this runs the script itself, with external tools replaced and
+    `codesign` as the tripwire: reaching it means the release would have
+    proceeded. If anyone ever makes that call unreachable again, the first
+    case below starts signing and this control fails at release time.
     """
-    build_dmg = (REPO_ROOT / BUILD_DMG).read_text()
-    match = re.search(r"^run_terminal_contract\(\) \{.*?^\}", build_dmg,
-                      re.MULTILINE | re.DOTALL)
-    require(match is not None, "cannot extract run_terminal_contract from the DMG builder")
-    body = match.group(0)
-
     passed = 0
-    with tempfile.TemporaryDirectory(prefix="governed-builder-refusal-") as directory:
-        harness = Path(directory) / "harness.sh"
-        marker = "REACHED_PACKAGING"
+    with tempfile.TemporaryDirectory(prefix="governed-builder-path-") as directory:
+        base = Path(directory)
+        tools = base / "bin"
+        tools.mkdir()
+
+        def executable(path: Path, body: str) -> None:
+            path.write_text(body)
+            path.chmod(0o755)
+
+        for name in ("security", "xcodebuild", "spctl", "hdiutil", "xcrun"):
+            executable(tools / name,
+                       '#!/bin/bash\necho "$(basename "$0")" >> "${CONTROL_TRACE}"\nexit 0\n')
+        # `ditto` really copies: the builder checks its result, and a stub that
+        # lied would stop the run before the property under test.
+        executable(tools / "ditto",
+                   '#!/bin/bash\necho ditto >> "${CONTROL_TRACE}"\n'
+                   'mkdir -p "$2" && cp -R "$1/." "$2/"\n')
+        executable(tools / "codesign",
+                   '#!/bin/bash\necho codesign >> "${CONTROL_TRACE}"\n'
+                   ': > "${CONTROL_SIGNED}"\nexit 90\n')
+
         cases = (
-            ("missing-checkout", "", "THEYOS_CHECKOUT is not set at all"),
-            ("checker-refuses", str(Path(directory)), "the governed runner refuses the checkout"),
+            ("real builder, no THEYOS_CHECKOUT", False, False, False, False),
+            ("real builder, checker refuses", False, False, True, False),
+            ("real builder, checker accepts", True, False, True, True),
+            ("MUTANT: call made unreachable", False, True, False, True),
         )
-        for name, checkout, why in cases:
-            # A stub checker that always refuses stands in for every rule the
-            # real one enforces; what is under test here is the builder's
-            # reaction, not the rule.
-            stub = Path(directory) / "bin"
-            stub.mkdir(exist_ok=True)
-            harness.write_text(
-                "set -euo pipefail\n"
-                f'REPO_ROOT="{directory}"\n'
-                f'THEYOS_CHECKOUT="{checkout}"\n'
-                '[[ -n "${THEYOS_CHECKOUT}" ]] || unset THEYOS_CHECKOUT\n'
-                'python3() { return 1; }\n'
-                'grep() { command grep "$@"; }\n'
-                f"{body}\n"
-                "run_terminal_contract\n"
-                f'echo "{marker}"\n'
-            )
-            (Path(directory) / "scripts").mkdir(exist_ok=True)
-            (Path(directory) / "scripts" / "theyos-engine.version").write_text("0.0.0\n")
-            completed = subprocess.run(["bash", str(harness)], capture_output=True,
-                                       text=True, timeout=120, check=False)
+        for name, accepts, unreachable, pass_checkout, expect_signed in cases:
+            root = base / re.sub(r"\W+", "-", name)
+            root.mkdir()
+            builder_sandbox(root, checker_accepts=accepts, unreachable=unreachable)
+            trace = root / "trace.txt"
+            trace.write_text("")
+            signed = root / "signed.marker"
+            environment = dict(os.environ)
+            environment["PATH"] = f"{tools}:{environment['PATH']}"
+            environment["CONTROL_TRACE"] = str(trace)
+            environment["CONTROL_SIGNED"] = str(signed)
+            environment.pop("THEYOS_CHECKOUT", None)
+            if pass_checkout:
+                environment["THEYOS_CHECKOUT"] = str(root)
+            completed = subprocess.run(
+                ["bash", str(root / "scripts/build-dmg.sh")],
+                capture_output=True, text=True, timeout=600, check=False, env=environment)
+            reached = signed.exists()
             require(
-                completed.returncode != 0 and marker not in completed.stdout,
-                f"builder refusal control survived: {name} — {why} "
-                f"(rc={completed.returncode}, reached={marker in completed.stdout})",
+                reached == expect_signed,
+                f"builder path control disagreed: {name} — reached signing "
+                f"{reached}, expected {expect_signed} (rc={completed.returncode}); "
+                + ("the release path no longer stops at a refused contract"
+                   if reached else "the harness never reaches signing, so the "
+                   "refusals above prove nothing"),
             )
             passed += 1
-            print(f"  ok  aborted: {name} — {why}")
+            verb = "reaches signing" if expect_signed else "stops before signing"
+            print(f"  ok  {name}: {verb}")
 
-    print(f"builder refusal controls: {passed}/{len(cases)} refusals stop the release")
+    print(f"builder path controls: {passed}/{len(cases)} runs of the real script judged correctly")
     return passed
 
 
@@ -1986,7 +2165,7 @@ def run_self_tests(snapshot: Mapping[str, str]) -> int:
     run_product_scan_controls()
     run_engine_receipt_controls()
     run_terminal_contract_gate_controls()
-    run_builder_refusal_controls()
+    run_builder_path_controls()
     run_engine_artifact_controls(snapshot)
     print(f"governed macOS release contract: {passed}/{len(mutants())} mutants rejected")
     return passed
@@ -2046,7 +2225,7 @@ def main(argv: list[str] | None = None) -> int:
             # better hat.
             run_engine_receipt_controls()
             run_terminal_contract_gate_controls()
-            run_builder_refusal_controls()
+            run_builder_path_controls()
             run_terminal_contract(args.run_terminal_contract)
             print("terminal contract: PASS")
             return 0
