@@ -72,7 +72,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         // orphans the live engine session (next relaunch only looks for
         // .engineLocal).
         XCTAssertTrue(restore.contains("restoreRetryDelaysNanoseconds"))
-        XCTAssertTrue(restore.contains("case .failed(transient: true) = outcome"))
+        XCTAssertTrue(restore.contains("case .failed(transient: true, message: _) = outcome"))
         XCTAssertTrue(restore.contains("Task.sleep(nanoseconds:"))
         // Explicit legacy cleanup remains behind the ownership guards;
         // supervised operations require an instance or creation-intent fence.
@@ -116,7 +116,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
             from: "enum EnginePaneAttacher",
             to: "static func attach("
         )
-        XCTAssertTrue(attacher.contains("case failed(transient: Bool)"))
+        XCTAssertTrue(attacher.contains("case failed(transient: Bool, message: String"))
         XCTAssertTrue(attacher.contains("500...599"))
         XCTAssertTrue(attacher.contains("case SoyehtAPIClient.APIError.httpError(let status, _) = error"))
         // No local engine context at all is definitive, not transient —
@@ -251,7 +251,7 @@ final class PersistentPanesRestoreSourceGuardTests: XCTestCase {
         let preserved = try slice(attempt, from: "if case .preserved", to: "guard case .attached")
         XCTAssertTrue(preserved.contains("preserveEngineSession(message: message, retryable: retryable)"))
         XCTAssertFalse(preserved.contains("markTerminalTransportReady"))
-        let unavailable = try slice(attempt, from: "guard case .attached", to: "if reconnected {")
+        let unavailable = try slice(attempt, from: "if case .failed(let retryable, let message)", to: "guard case .attached")
         XCTAssertTrue(unavailable.contains("preserveEngineSession("))
         XCTAssertFalse(unavailable.contains("markTerminalTransportReady"))
         XCTAssertFalse(attempt.contains("NativePTY("))

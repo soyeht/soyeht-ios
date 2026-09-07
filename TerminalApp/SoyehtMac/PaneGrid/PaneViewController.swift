@@ -1071,7 +1071,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     terminalView: self.terminalView,
                     convStore: convStore
                 )
-                guard case .failed(transient: true) = outcome,
+                guard case .failed(transient: true, message: _) = outcome,
                       attempt < Self.restoreRetryDelaysNanoseconds.count else {
                     break
                 }
@@ -1116,12 +1116,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 markTerminalTransportReadyForDeferredAgentDelivery()
                 Self.logger.notice("engine pane session was gone; revoked agent ownership and started a fresh shell pane=\(conversationID.uuidString, privacy: .public)")
                 return
-            case .failed:
-                break
+            case .failed(let retryable, let message):
+                preserveEngineSession(message: message, retryable: retryable)
             }
-
-            preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
-                                  retryable: true)
         }
     }
 
@@ -1159,7 +1156,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 terminalView: terminalView,
                 convStore: convStore
             )
-            guard case .failed(transient: true) = outcome,
+            guard case .failed(transient: true, message: _) = outcome,
                   attempt < Self.restoreRetryDelaysNanoseconds.count else {
                 break
             }
@@ -1173,11 +1170,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             preserveEngineSession(message: message, retryable: retryable)
             return true
         }
-        guard case .attached(let reconnected) = outcome else {
-            preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
-                                  retryable: true)
+        if case .failed(let retryable, let message) = outcome {
+            preserveEngineSession(message: message, retryable: retryable)
             return true
         }
+        guard case .attached(let reconnected) = outcome else { return true }
         if reconnected {
             markTerminalDraftUnknownAfterPersistentTransportReattach()
         }

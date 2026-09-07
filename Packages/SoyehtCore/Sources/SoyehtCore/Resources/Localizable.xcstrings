@@ -114,103 +114,103 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The terminal service is temporarily unavailable."
+            "value": "The terminal service is unavailable."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O serviço de terminal está temporariamente indisponível."
+            "value": "O serviço de terminal está indisponível."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "O serviço de terminal está temporariamente indisponível."
+            "value": "O serviço de terminal está indisponível."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El servicio de terminal no está disponible temporalmente."
+            "value": "El servicio de terminal no está disponible."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Terminaldienst ist vorübergehend nicht verfügbar."
+            "value": "Der Terminaldienst ist nicht verfügbar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le service de terminal est temporairement indisponible."
+            "value": "Le service de terminal est indisponible."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Служба терминала временно недоступна."
+            "value": "Служба терминала недоступна."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Layanan terminal untuk sementara tidak tersedia."
+            "value": "Layanan terminal tidak tersedia."
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "خدمة الطرفية غير متاحة مؤقتًا."
+            "value": "خدمة الطرفية غير متاحة."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "ٹرمینل سروس عارضی طور پر دستیاب نہیں ہے۔"
+            "value": "ٹرمینل سروس دستیاب نہیں ہے۔"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ターミナルサービスは一時的に利用できません。"
+            "value": "ターミナルサービスを利用できません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "터미널 서비스를 일시적으로 사용할 수 없습니다."
+            "value": "터미널 서비스를 사용할 수 없습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "终端服务暂时不可用。"
+            "value": "终端服务不可用。"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टर्मिनल सेवा अस्थायी रूप से उपलब्ध नहीं है।"
+            "value": "टर्मिनल सेवा उपलब्ध नहीं है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "टर्मिनल सेवा तात्पुरती उपलब्ध नाही."
+            "value": "टर्मिनल सेवा उपलब्ध नाही."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "టెర్మినల్ సేవ తాత్కాలికంగా అందుబాటులో లేదు."
+            "value": "టెర్మినల్ సేవ అందుబాటులో లేదు."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "টার্মিনাল পরিষেবা সাময়িকভাবে উপলব্ধ নয়।"
+            "value": "টার্মিনাল পরিষেবা অনুপলব্ধ।"
           }
         }
       }

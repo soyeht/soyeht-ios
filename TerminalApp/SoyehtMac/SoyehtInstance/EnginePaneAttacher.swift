@@ -13,7 +13,7 @@ enum EnginePaneAttacher {
     enum AttachOutcome: Equatable {
         /// No execution was submitted and no supervised ownership is known.
         /// The caller may retry, but must not select another backend silently.
-        case failed(transient: Bool)
+        case failed(transient: Bool, message: String = SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription)
         /// A supervised session or uncertain CREATE already belongs to this
         /// pane. Preserve that ownership; never substitute a NativePTY.
         case preserved(retryable: Bool, message: String)
@@ -56,11 +56,11 @@ enum EnginePaneAttacher {
         convStore: ConversationStore
     ) async -> AttachOutcome {
         let current = convStore.conversation(conversation.id) ?? conversation
-        func unresolved(_ retryable: Bool) -> AttachOutcome {
+        func unresolved(_ retryable: Bool, message: String = SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription) -> AttachOutcome {
             if current.commander.requiresEngineSessionPreservation || convStore.conversation(conversation.id)?.commander.requiresEngineSessionPreservation == true {
-                return .preserved(retryable: retryable, message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription)
+                return .preserved(retryable: retryable, message: message)
             }
-            return .failed(transient: retryable)
+            return .failed(transient: retryable, message: message)
         }
         var context: ServerContext
         switch await LocalEngineContext.resolveDetailed() {
@@ -98,7 +98,7 @@ enum EnginePaneAttacher {
                     }
                 }
                 logger.error("terminal intent issuance failed cause=\(String(describing: error), privacy: .public)")
-                return unresolved(isTransient(error))
+                return unresolved(isTransient(error), message: error.localizedDescription)
             }
         }
         guard convStore.conversation(conversation.id)?.commander == current.commander else {

@@ -4378,7 +4378,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             // boot is the common first-run case: the engine answers a moment
             // later. Exhaustion preserves the pane and surfaces the outcome;
             // it never selects another execution backend.
-            guard case .failed(transient: true) = firstOutcome,
+            guard case .failed(transient: true, message: _) = firstOutcome,
                   attempt < Self.firstAttachRetryDelaysNanoseconds.count else {
                 break
             }
@@ -4442,13 +4442,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             case .attached(reconnected: true):
                 pane.terminalView.disconnect()
                 throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
-            case .failed(let transient):
-                pane.preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
+            case .failed(let transient, let message):
+                pane.preserveEngineSession(message: message,
                                            retryable: transient)
                 throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
             }
-        case .failed(let transient):
-            pane.preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
+        case .failed(let transient, let message):
+            pane.preserveEngineSession(message: message,
                                        retryable: transient)
             throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
         }

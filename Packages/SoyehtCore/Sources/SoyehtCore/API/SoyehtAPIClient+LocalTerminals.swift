@@ -27,7 +27,7 @@ extension SoyehtAPIClient {
 
         public var errorDescription: String? {
             switch self {
-            case .unavailable: String(localized: "terminal.failure.unavailable", defaultValue: "The terminal service is temporarily unavailable.", bundle: .module)
+            case .unavailable: String(localized: "terminal.failure.unavailable", defaultValue: "The terminal service is unavailable.", bundle: .module)
             case .sessionMissing: String(localized: "terminal.failure.missing", defaultValue: "This terminal session could not be found.", bundle: .module)
             case .sessionEnded: String(localized: "terminal.failure.ended", defaultValue: "This terminal session has ended.", bundle: .module)
             case .instanceMismatch: String(localized: "terminal.failure.changed", defaultValue: "The terminal session has changed.", bundle: .module)
@@ -228,6 +228,12 @@ extension SoyehtAPIClient {
         request.httpMethod = "POST"
         context.server.kind.applyAuth(to: &request, token: context.token)
         let (data, response) = try await session.data(for: request)
+        // Issuance has no "missing session" outcome: it reserves permission
+        // for a new execution. Old engines lack this route entirely. Do not
+        // describe that permanent contract mismatch as temporary transport loss.
+        if let http = response as? HTTPURLResponse, [404, 405].contains(http.statusCode) {
+            throw LocalTerminalFailure.incompatibleProtocol
+        }
         try checkLocalTerminalResponse(response, data: data)
         let result = try JSONDecoder().decode(LocalTerminalIntent.self, from: data)
         guard result.conversationId == conversationId else { throw LocalTerminalFailure.instanceMismatch }

@@ -143,7 +143,7 @@ final class PersistentPanesLifecycleSourceGuardTests: XCTestCase {
         let restore = try slice(
             source,
             from: "private func restoreEnginePaneIfNeeded(for conv: Conversation, forceReattach: Bool = false) {",
-            to: "guard case .failed(transient: true) = outcome"
+            to: "guard case .failed(transient: true, message: _) = outcome"
         )
         XCTAssertTrue(restore.contains("EngineAttachGate.isInFlight(conversationID)"))
         XCTAssertTrue(restore.contains("EngineAttachGate.begin(conversationID)"))
