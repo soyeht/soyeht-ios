@@ -23,7 +23,8 @@ re-created" — criteria proposed by [jaime]):
     something that never happened.
   - PID plus start time of the long-running process and of the TUI, not just of
     the shell.
-  - PGID/SID and the foreground process group — that is what proves job control.
+  - PGID and the foreground process group for job control. The macOS `sess`
+    field is diagnostic only; it cannot establish session identity.
   - an I/O challenge AFTER reattaching: a process can be alive and wedged.
   - numbered, deterministic output during the absence, checked by content and
     by interval — not "something showed up".
@@ -43,12 +44,12 @@ pid/start/tty/pgid, a non-exported nonce, a fresh challenge after reattaching,
 and numbered output released ONLY after the engine was proven gone by process
 and by port.
 
-WHAT IT STILL DOES NOT PROVE: that the output kept flowing for the whole
-absence (only that it began inside a verified window and the engine was still
-gone `--absence-hold` seconds later), and nothing at all about the supervisor
-until one is installed — `--failure-mode supervisor` refuses rather than
-pretending. The Rust `exercise_process_survival` harness is a reference for the
-load and the ordering used here; this probe inherits no proof from it.
+WHAT IT STILL DOES NOT PROVE: continuous observation between OS samples, or
+installed-supervisor survival before a real run. The absence gate requires all
+writer DONE sentinels while every sampled PID/port check still reports absence;
+replay then checks each numbered line. `--failure-mode supervisor` refuses until
+a supervisor is installed. The Rust `exercise_process_survival` harness is a
+reference for load and ordering; this probe inherits no proof from it.
 """
 
 from __future__ import annotations

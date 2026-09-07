@@ -1,63 +1,10 @@
 import XCTest
 @testable import SoyehtMacDomain
 
-/// The engine used to live in `gui/<uid>`, the graphical session, which
-/// launchd tears down at logout. MEASURED 2026-09-04 on the owner's Mac: the
-/// WindowServer exited at 07:47, loginwindow closed the session immediately,
-/// and the engine died with it — every pane gone, after the whole promise of
-/// the broker was that sessions outlive the app. On that same machine,
-/// user-domain jobs (`secd`, `ctkd`, CoreSimulator) kept their PIDs straight
-/// through the crash, some of them fifteen days old.
-///
-/// So the job moves to the user domain. These pin the two halves that can be
-/// tested without launchd: WHEN the move is allowed to happen, and WHAT the
-/// plist must say for launchd to put it there.
+/// Both installation profiles request the Background domain. Authorization and
+/// recovery behavior are exercised by EngineReplacementCoordinatorTests using
+/// the actual coordinator, rather than a retired count-based policy.
 final class EngineSessionDomainTests: XCTestCase {
-
-    // MARK: - When the move may happen
-
-    func testMovesAtAQuietLaunch() {
-        XCTAssertEqual(
-            EngineServiceReconciler.sessionDomainAction(backgroundJobLoaded: false, liveSessionCount: 0),
-            .migrateNow
-        )
-    }
-
-    /// The move stops a running engine, and stopping it is exactly what costs
-    /// panes. One attached session is enough to wait.
-    func testWaitsWhileAnySessionIsAttached() {
-        XCTAssertEqual(
-            EngineServiceReconciler.sessionDomainAction(backgroundJobLoaded: false, liveSessionCount: 1),
-            .waitForAQuietMoment(liveSessionCount: 1)
-        )
-        XCTAssertEqual(
-            EngineServiceReconciler.sessionDomainAction(backgroundJobLoaded: false, liveSessionCount: 8),
-            .waitForAQuietMoment(liveSessionCount: 8)
-        )
-    }
-
-    /// A probe that could not answer is not a zero. This is the same rule
-    /// that keeps a stale engine from being bounced blind, and it fails the
-    /// same way: closed.
-    func testAnUnreadableProcessTableIsNeverPermission() {
-        XCTAssertEqual(
-            EngineServiceReconciler.sessionDomainAction(backgroundJobLoaded: false, liveSessionCount: nil),
-            .waitForAQuietMoment(liveSessionCount: nil)
-        )
-    }
-
-    func testDoesNothingOnceTheJobIsAlreadyInTheUserDomain() {
-        // Not even with sessions attached: there is nothing left to move, and
-        // a "migration" here would be a pointless restart.
-        XCTAssertEqual(
-            EngineServiceReconciler.sessionDomainAction(backgroundJobLoaded: true, liveSessionCount: 4),
-            .nothingToDo
-        )
-        XCTAssertEqual(
-            EngineServiceReconciler.sessionDomainAction(backgroundJobLoaded: true, liveSessionCount: nil),
-            .nothingToDo
-        )
-    }
 
     // MARK: - What the plist must say
 
@@ -108,10 +55,6 @@ final class EngineSessionDomainTests: XCTestCase {
     }
 
     // MARK: - How the move is made
-
-    // Background loading, both-domain bootout, release refusal and observed
-    // registration are exercised by EngineLabelReleaseTests through the live
-    // replacement function with an injected service boundary.
 
     // EngineReplacementCoordinatorTests exercises migration authorization,
     // no-load-on-unknown, readback, and resumption through injected commands.

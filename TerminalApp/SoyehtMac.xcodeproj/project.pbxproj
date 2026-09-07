@@ -240,9 +240,7 @@
 		EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */; };
 		F17E0001000000000000F004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F003 /* Localizable.xcstrings */; };
 		FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */; };
-		CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003C0000000000000002 /* EngineServiceReconciler.swift */; };
 		CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */; };
-		EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10003C0000000000000002 /* EngineRepairWindowController.swift */; };
 		EE10003D0000000000000001 /* EngineUpdateWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10003D0000000000000002 /* EngineUpdateWindowController.swift */; };
 		EE10004C0000000000000001 /* EngineBackgroundAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE10004C0000000000000002 /* EngineBackgroundAgent.swift */; };
 		B35F743B9A53765F800BB6E9 /* EngineCommandRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF590EAF245D2FB606F2DEB5 /* EngineCommandRunner.swift */; };
@@ -494,9 +492,7 @@
 		ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetupInvitationListener.swift; sourceTree = "<group>"; };
 		CB10003E0000000000000002 /* MacEngineAdvertisedURL.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacEngineAdvertisedURL.swift; sourceTree = "<group>"; };
 		EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SMAppServiceInstaller.swift; sourceTree = "<group>"; };
-		CB10003C0000000000000002 /* EngineServiceReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineServiceReconciler.swift; sourceTree = "<group>"; };
 		CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerEventsLogRepair.swift; sourceTree = "<group>"; };
-		EE10003C0000000000000002 /* EngineRepairWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineRepairWindowController.swift; sourceTree = "<group>"; };
 		EE10003D0000000000000002 /* EngineUpdateWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineUpdateWindowController.swift; sourceTree = "<group>"; };
 		EE10004C0000000000000002 /* EngineBackgroundAgent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EngineBackgroundAgent.swift; sourceTree = "<group>"; };
 		F17E0001000000000000F003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -560,9 +556,7 @@
 			children = (
 				3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */,
 				EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */,
-				CB10003C0000000000000002 /* EngineServiceReconciler.swift */,
 				CB10003D0000000000000002 /* OwnerEventsLogRepair.swift */,
-				EE10003C0000000000000002 /* EngineRepairWindowController.swift */,
 				EE10003D0000000000000002 /* EngineUpdateWindowController.swift */,
 				EE10004C0000000000000002 /* EngineBackgroundAgent.swift */,
 				51C22DE7F56B0B3831330102 /* PTYSupervisorInstaller.swift */,
@@ -1418,9 +1412,7 @@
 				AB1B4E9940D1EF30AC532032 /* HouseCardView.swift in Sources */,
 				AB1B4E9940D1EF30AC532033 /* AddLinuxServerSheet.swift in Sources */,
 				FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */,
-				CB10003C0000000000000001 /* EngineServiceReconciler.swift in Sources */,
 				CB10003D0000000000000001 /* OwnerEventsLogRepair.swift in Sources */,
-				EE10003C0000000000000001 /* EngineRepairWindowController.swift in Sources */,
 				EE10003D0000000000000001 /* EngineUpdateWindowController.swift in Sources */,
 				EE10004C0000000000000001 /* EngineBackgroundAgent.swift in Sources */,
 				A64B0B1C5D0415B3106654CD /* PTYSupervisorInstaller.swift in Sources */,
