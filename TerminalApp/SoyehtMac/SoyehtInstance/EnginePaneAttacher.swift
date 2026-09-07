@@ -232,7 +232,7 @@ enum EnginePaneAttacher {
                 }
             }
             logger.error("local terminal attach failed cause=\(String(describing: error), privacy: .public)")
-            return .preserved(retryable: isTransient(error), message: error.localizedDescription)
+            return unresolved(isTransient(error), message: error.localizedDescription)
           }
         }
     }

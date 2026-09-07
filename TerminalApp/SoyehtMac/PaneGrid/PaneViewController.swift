@@ -487,12 +487,21 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     @objc private func engineInstallationBecameReady() {
         guard !disconnectBanner.isHidden, !terminalView.isRemoteSessionConnected,
-              let conv = AppEnvironment.conversationStore?.conversation(conversationID),
-              case .engineLocal = conv.commander else { return }
+              let conv = AppEnvironment.conversationStore?.conversation(conversationID) else { return }
         Self.logger.notice("engine installation ready; re-observing retained pane")
         pendingTransportReattachTask?.cancel()
         pendingTransportReattachTask = nil
-        restoreEnginePaneIfNeeded(for: conv, forceReattach: true)
+        switch conv.commander {
+        case .engineLocal:
+            restoreEnginePaneIfNeeded(for: conv, forceReattach: true)
+        case .native where SoyehtFeatureFlags.persistentLocalPanesEnabled:
+            // Ticket issuance may have failed before the native restore
+            // could persist engine ownership. The existing restore path
+            // refuses to replace an active NativePTY.
+            restoreLocalShellIfNeeded(for: conv)
+        default:
+            break
+        }
     }
 
     private func hideDisconnectBanner() {
