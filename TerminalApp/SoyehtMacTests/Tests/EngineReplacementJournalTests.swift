@@ -36,6 +36,52 @@ final class EngineReplacementJournalTests: XCTestCase {
         }
     }
 
+    func testCreationAndReplacementExcludeEachOtherInBothOrders() throws {
+        try withDirectory { directory in
+            var first: Journal.CreationLease? = try Journal.acquireCreationLease(directory: directory, profile: .dev)
+            var second: Journal.CreationLease? = try Journal.acquireCreationLease(directory: directory, profile: .dev)
+            XCTAssertNotNil(first)
+            XCTAssertNotNil(second)
+            XCTAssertThrowsError(try Journal(directory: directory, profile: .dev)) {
+                XCTAssertEqual($0 as? Journal.Failure, .busy)
+            }
+            first = nil
+            XCTAssertThrowsError(try Journal(directory: directory, profile: .dev))
+            second = nil
+            var replacement: Journal? = try Journal(directory: directory, profile: .dev)
+            XCTAssertThrowsError(try Journal.acquireCreationLease(directory: directory, profile: .dev)) {
+                XCTAssertEqual($0 as? Journal.Failure, .busy)
+            }
+            let value = try record()
+            try replacement?.save(value)
+            replacement = nil
+            // Relaunch/releasing the round does not forget a pending removal.
+            XCTAssertThrowsError(try Journal.acquireCreationLease(directory: directory, profile: .dev)) {
+                XCTAssertEqual($0 as? Journal.Failure, .busy)
+            }
+            replacement = try Journal(directory: directory, profile: .dev)
+            try replacement?.complete(value)
+            replacement = nil
+            XCTAssertNoThrow(try Journal.acquireCreationLease(directory: directory, profile: .dev))
+        }
+    }
+
+    func testCreationRefusesUnreadableOrInterruptedJournal() throws {
+        try withDirectory { directory in
+            var journal: Journal? = try Journal(directory: directory, profile: .dev)
+            try journal?.save(record())
+            journal = nil
+            let pending = directory.appendingPathComponent("pending.json")
+            try Data("{".utf8).write(to: pending)
+            XCTAssertThrowsError(try Journal.acquireCreationLease(directory: directory, profile: .dev))
+            try FileManager.default.removeItem(at: pending)
+            try Data("{".utf8).write(to: directory.appendingPathComponent("pending.next"))
+            XCTAssertThrowsError(try Journal.acquireCreationLease(directory: directory, profile: .dev)) {
+                XCTAssertEqual($0 as? Journal.Failure, .incompleteWrite)
+            }
+        }
+    }
+
     func testEveryInterruptedWriteRefusesAnotherOperationAfterReopen() throws {
         for cut in Journal.WriteStep.allCases {
             try withDirectory { directory in

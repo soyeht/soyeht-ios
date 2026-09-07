@@ -27,7 +27,11 @@ LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
 # shipping engines never share a launchd job or any on-disk state.
 LAUNCH_AGENT_DEV_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.dev.plist"
 LAUNCH_AGENT_DEV_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.dev.plist"
-REQUIRED_HELPERS=(vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject)
+HELPER_NAMES=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --support-only)
+RECEIPT_NAME=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --receipt-only)
+RECEIPT_CHECKER="${SRCROOT}/../scripts/engine-artifact-receipt.py"
+REQUIRED_HELPERS=()
+while IFS= read -r helper; do REQUIRED_HELPERS+=("${helper}"); done <<< "${HELPER_NAMES}"
 
 has_required_helpers() {
     for helper in "${REQUIRED_HELPERS[@]}"; do
@@ -35,7 +39,7 @@ has_required_helpers() {
             return 1
         fi
     done
-    return 0
+    [ -f "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}" ]
 }
 
 has_required_engine_bundle() {
@@ -106,6 +110,7 @@ if ! has_required_helpers; then
     done
 fi
 
+python3 "${RECEIPT_CHECKER}" "${ENGINE_SRC}" "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}"
 mkdir -p "${HELPERS_DIR}"
 cp "${ENGINE_SRC}" "${ENGINE_DEST}"
 chmod +x "${ENGINE_DEST}"
@@ -145,4 +150,9 @@ for helper in "${REQUIRED_HELPERS[@]}"; do
     sign_helper "${HELPERS_DIR}/${helper}"
 done
 
+# codesign changes file bytes while preserving linked image identity. Input
+# was verified before copying; bind the receipt to the signed build output.
+python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}" \
+    --after-codesign "${HELPERS_DIR}/${RECEIPT_NAME}"
+python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${HELPERS_DIR}/${RECEIPT_NAME}"
 echo "Embedded engine helpers → ${HELPERS_DIR}"

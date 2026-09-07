@@ -42,14 +42,72 @@ enum EnginePackager {
 
     /// Installs the engine binaries and bootstrap credential.
     ///
-    /// The LaunchAgent plist is intentionally not copied into
-    /// `~/Library/LaunchAgents`; `SMAppService.agent(plistName:)` registers
-    /// the plist embedded in the app bundle.
+    /// This stages files only. The lifecycle coordinator separately writes
+    /// and loads the profile's Background LaunchAgent after its preconditions
+    /// are verified. Copying files says nothing about the running executable.
     ///
     /// - Throws: `EnginePackagerError` describing the failure.
     static func install() throws {
+        _ = try validatedBundledArtifact()
+        try FileManager.default.createDirectory(at: soyehtSupportDirectory, withIntermediateDirectories: true)
+        let journal = try EngineReplacementJournal(directory: EngineReplacementJournal.directory(in: soyehtSupportDirectory),
+                                                     profile: SoyehtInstallProfile.current.kind)
+        try stage(holding: journal)
+    }
+
+    /// The production lifecycle adapter uses its already-held exclusive
+    /// journal. A pending target is immutable even if a newer app has arrived.
+    static func stage(holding journal: EngineReplacementJournal) throws {
+        guard try journal.read() == nil else { throw EngineReplacementJournal.Failure.busy }
+        _ = try validatedBundledArtifact()
         try installSupportBinaries()
         try installBootstrapToken()
+    }
+
+    /// Validate the complete package and the engine/helper wire contract
+    /// before replacing any installed executable. Matching a cache version
+    /// string cannot make a package without a supervisor usable.
+    static func validatedBundledArtifact() throws -> EngineArtifactIdentity {
+        _ = try EmbeddedEngineBundleProbe().validateBundledSupport()
+        return try validatedArtifact(in: bundledSupportBinaryURL(named: "theyos-engine").deletingLastPathComponent())
+    }
+
+    static func validatedArtifact(in directory: URL) throws -> EngineArtifactIdentity {
+        // Never execute a candidate engine to discover its CLI contract: an
+        // older engine may ignore an unknown option and start the service.
+        // Delivery must supply metadata bound to the exact executable bytes.
+        let executable = directory.appendingPathComponent("theyos-engine")
+        let metadataURL = executable.deletingLastPathComponent().appendingPathComponent(EmbeddedEngineHelpers.artifactReceiptName)
+        struct ArtifactReceipt: Decodable {
+            let artifact: EngineArtifactIdentity
+            let executable_sha256: String
+        }
+        guard let data = try? Data(contentsOf: metadataURL),
+              let receipt = try? JSONDecoder().decode(ArtifactReceipt.self, from: data),
+              let digest = sha256(executable),
+              digest.map({ String(format: "%02x", $0) }).joined() == receipt.executable_sha256 else {
+            throw EnginePackagerError.incompatiblePackage
+        }
+        let image = try EngineCommandRunner.runBlocking(executable: URL(fileURLWithPath: "/usr/bin/dwarfdump"),
+                                                        arguments: ["--uuid", executable.path])
+        let imageLines = String(decoding: image.output, as: UTF8.self).lowercased()
+            .replacingOccurrences(of: "-", with: "").split(separator: "\n")
+        guard image.succeeded, let uuid = receipt.artifact.imageUUID,
+              imageLines.count == 1,
+              imageLines[0].hasPrefix("uuid: \(uuid) (arm64) ") else {
+            throw EnginePackagerError.incompatiblePackage
+        }
+        let helper = try EngineCommandRunner.runBlocking(
+            executable: directory.appendingPathComponent("soyeht-ptyd"), arguments: ["--contract"])
+        struct Contract: Decodable { let protocol_version: UInt16 }
+        let identity = receipt.artifact
+        guard helper.succeeded,
+              let contract = try? JSONDecoder().decode(Contract.self, from: helper.output),
+              identity.compareImage(to: identity) == .sameImage,
+              identity.ptySupervisorProtocol == contract.protocol_version else {
+            throw EnginePackagerError.incompatiblePackage
+        }
+        return identity
     }
 
     // MARK: - Private
@@ -69,6 +127,10 @@ enum EnginePackager {
             let destinationURL = engineDestinationDirectory.appendingPathComponent(binaryName)
             try installBinary(named: binaryName, sourceURL: sourceURL, destinationURL: destinationURL)
         }
+        let receiptName = EmbeddedEngineHelpers.artifactReceiptName
+        let receipt = try bundledSupportBinaryURL(named: "theyos-engine")
+            .deletingLastPathComponent().appendingPathComponent(receiptName)
+        try Data(contentsOf: receipt).write(to: engineDestinationDirectory.appendingPathComponent(receiptName), options: .atomic)
     }
 
     private static func installBootstrapToken() throws {
@@ -93,9 +155,8 @@ enum EnginePackager {
 
     private static func installBinary(named binaryName: String, sourceURL: URL, destinationURL: URL) throws {
         guard !isUpToDate(source: sourceURL, destination: destinationURL) else { return }
-        let pid = ProcessInfo.processInfo.processIdentifier
         let tempURL = engineDestinationDirectory
-            .appendingPathComponent(".\(binaryName).tmp-\(pid)")
+            .appendingPathComponent(".\(binaryName).tmp-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         try FileManager.default.copyItem(at: sourceURL, to: tempURL)
@@ -148,11 +209,18 @@ enum EnginePackager {
 
 enum EnginePackagerError: Error, LocalizedError {
     case supportBinaryNotFound(String)
+    case incompatiblePackage
 
     var errorDescription: String? {
         switch self {
         case .supportBinaryNotFound(let binaryName):
             return "Support binary missing from app bundle (Contents/Helpers/\(binaryName))."
+        case .incompatiblePackage:
+            return String(localized: LocalizedStringResource(
+                "engine.install.incompatiblePackage",
+                defaultValue: "The bundled engine and terminal supervisor could not be verified as compatible.",
+                comment: "Package validation failed before replacing an installed engine."
+            ))
         }
     }
 }

@@ -137,6 +137,15 @@ final class DevEmbeddedEngineSmokeTests: XCTestCase {
         }
     }
 
+    func test_probeRejectsAnOldPackageWithoutTheTerminalSupervisor() throws {
+        let bundle = try FakeEmbeddedEngineBundle.make(profile: .dev)
+        defer { bundle.cleanup() }
+        try FileManager.default.removeItem(at: bundle.helpersDirectory.appendingPathComponent("soyeht-ptyd"))
+        XCTAssertThrowsError(try EmbeddedEngineBundleProbe(bundleURL: bundle.bundleURL, profile: .dev).validateBundledSupport()) {
+            XCTAssertEqual($0 as? EmbeddedEngineBundleProbeError, .missingBundledHelper("soyeht-ptyd"))
+        }
+    }
+
     func test_probeRejectsLaunchAgentLabelDrift() throws {
         let bundle = try FakeEmbeddedEngineBundle.make(profile: .dev, launchdLabel: "com.soyeht.engine")
         defer { bundle.cleanup() }

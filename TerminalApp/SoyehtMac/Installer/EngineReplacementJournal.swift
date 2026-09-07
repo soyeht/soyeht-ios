@@ -40,8 +40,34 @@ final class EngineReplacementJournal {
     private let checkpoint: (WriteStep) throws -> Void
     private static let recordLimit = 16_384
 
-    init(directory: URL, profile: SoyehtInstallProfile.Kind,
+    convenience init(directory: URL, profile: SoyehtInstallProfile.Kind,
          checkpoint: @escaping (WriteStep) throws -> Void = { _ in }) throws {
+        try self.init(directory: directory, profile: profile, shared: false, checkpoint: checkpoint)
+    }
+
+    /// Held across one CREATE response (including an uncertain response).
+    /// Existing sessions restore without this lease. Its shared lock prevents
+    /// replacement from starting after the pending-state check but before POST.
+    final class CreationLease: @unchecked Sendable {
+        // Immutable ownership of kernel file locks; moving the lease between
+        // tasks only changes where deinit releases its descriptors.
+        private let reader: EngineReplacementJournal
+        fileprivate init(reader: EngineReplacementJournal) { self.reader = reader }
+    }
+
+    static func directory(in support: URL) -> URL {
+        support.appendingPathComponent("engine-replacement", isDirectory: true)
+    }
+
+    static func acquireCreationLease(directory: URL, profile: SoyehtInstallProfile.Kind) throws -> CreationLease {
+        let reader = try EngineReplacementJournal(directory: directory, profile: profile,
+                                                   shared: true, checkpoint: { _ in })
+        guard try reader.read() == nil else { throw Failure.busy }
+        return CreationLease(reader: reader)
+    }
+
+    private init(directory: URL, profile: SoyehtInstallProfile.Kind, shared: Bool,
+                 checkpoint: @escaping (WriteStep) throws -> Void) throws {
         self.profile = profile
         self.checkpoint = checkpoint
         // The prepared installation must already own the parent directory.
@@ -71,7 +97,7 @@ final class EngineReplacementJournal {
               info.st_uid == getuid(), info.st_mode & 0o777 == 0o600 else {
             Darwin.close(lock); Darwin.close(root); throw Failure.storageUnavailable(EACCES)
         }
-        guard flock(lock, LOCK_EX | LOCK_NB) == 0 else {
+        guard flock(lock, (shared ? LOCK_SH : LOCK_EX) | LOCK_NB) == 0 else {
             let code = errno; Darwin.close(lock); Darwin.close(root)
             if code == EWOULDBLOCK { throw Failure.busy }
             throw Failure.storageUnavailable(code)

@@ -31322,6 +31322,220 @@
         }
       }
     },
+    "engine.install.incompatiblePackage": {
+      "comment": "Package validation failed before replacing an installed engine.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The bundled engine and terminal supervisor could not be verified as compatible."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível verificar a compatibilidade entre o engine incluído e o supervisor de terminais."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível verificar a compatibilidade entre o engine incluído e o supervisor de terminais."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo verificar la compatibilidad entre el motor incluido y el supervisor de terminales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La compatibilité entre le moteur inclus et le superviseur de terminaux n’a pas pu être vérifiée."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kompatibilität zwischen der mitgelieferten Engine und dem Terminal-Supervisor konnte nicht überprüft werden."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить совместимость встроенного движка и супервизора терминалов."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证随附引擎与终端管理程序的兼容性。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同梱エンジンとターミナル管理プログラムの互換性を確認できませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "포함된 엔진과 터미널 관리 프로그램의 호환성을 확인할 수 없습니다."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kompatibilitas mesin yang disertakan dengan pengelola terminal tidak dapat diverifikasi."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر التحقق من التوافق بين المحرك المضمّن ومشرف الطرفيات."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शामिल इंजन और टर्मिनल सुपरवाइज़र की संगतता की पुष्टि नहीं हो सकी।"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অন্তর্ভুক্ত ইঞ্জিন ও টার্মিনাল সুপারভাইজারের সামঞ্জস্য যাচাই করা যায়নি।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समाविष्ट इंजिन आणि टर्मिनल सुपरवायझर यांची सुसंगतता पडताळता आली नाही."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "చేర్చబడిన ఇంజిన్ మరియు టెర్మినల్ సూపర్‌వైజర్ అనుకూలతను ధృవీకరించలేకపోయాము."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "شامل کردہ انجن اور ٹرمینل سپروائزر کی مطابقت کی تصدیق نہیں ہو سکی۔"
+          }
+        }
+      }
+    },
+    "engineReplacement.creationBlocked": {
+      "comment": "A pending engine replacement blocks new execution, while existing sessions can reconnect.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم إيقاف تشغيل المحطات مؤقتًا لأن تحديث المحرك لم يُحسم بعد. استأنف التحديث للمتابعة."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ইঞ্জিন আপডেট অসম্পূর্ণ থাকায় টার্মিনাল চালু করা স্থগিত আছে। চালিয়ে যেতে আপডেট আবার শুরু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Öffnen von Terminals ist pausiert, solange das Engine-Update ungeklärt ist. Setze das Update fort, um fortzufahren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminal launch is paused while the engine update is unresolved. Resume the engine update to continue."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La apertura de terminales está pausada mientras la actualización del motor está pendiente. Reanuda la actualización para continuar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’ouverture des terminaux est suspendue tant que la mise à jour du moteur reste en attente. Reprenez la mise à jour pour continuer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजन अपडेट अधूरा होने के कारण टर्मिनल शुरू करना रुका हुआ है। जारी रखने के लिए अपडेट फिर से शुरू करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peluncuran terminal dijeda karena pembaruan mesin belum selesai. Lanjutkan pembaruan untuk meneruskan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンの更新が未完了のため、ターミナルの起動を一時停止しています。続行するには更新を再開してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "엔진 업데이트가 완료되지 않아 터미널 실행이 일시 중지되었습니다. 계속하려면 업데이트를 재개하세요."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इंजिन अपडेट अपूर्ण असल्यामुळे टर्मिनल सुरू करणे थांबवले आहे. पुढे जाण्यासाठी अपडेट पुन्हा सुरू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A abertura de terminais está pausada enquanto a atualização do engine está pendente. Retome a atualização para continuar."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A abertura de terminais está em pausa enquanto a atualização do engine está pendente. Retome a atualização para continuar."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запуск терминалов приостановлен, пока обновление движка не завершено. Возобновите обновление, чтобы продолжить."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ఇంజిన్ నవీకరణ పూర్తి కాలేదు కాబట్టి టెర్మినల్ ప్రారంభించడం నిలిపివేయబడింది. కొనసాగించడానికి నవీకరణను తిరిగి ప్రారంభించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انجن کی اپ ڈیٹ نامکمل ہونے کی وجہ سے ٹرمینل کا آغاز روکا گیا ہے۔ جاری رکھنے کے لیے اپ ڈیٹ دوبارہ شروع کریں۔"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎更新尚未完成，已暂停启动终端。请恢复更新以继续。"
+          }
+        }
+      }
+    },
     "installer.error.cancelled": {
       "comment": "Install error — user closed the Welcome window mid-install.",
       "extractionState": "stale",

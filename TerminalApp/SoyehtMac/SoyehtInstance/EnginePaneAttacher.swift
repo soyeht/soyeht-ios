@@ -136,6 +136,26 @@ enum EnginePaneAttacher {
                       let existing = try await pendingSession(request: request, context: context) {
                 response = existing
             } else {
+                let support = EnginePackager.soyehtSupportDirectory
+                let profile = SoyehtInstallProfile.current.kind
+                let lease: EngineReplacementJournal.CreationLease
+                do {
+                    lease = try await Task.detached {
+                        try EngineReplacementJournal.acquireCreationLease(
+                            directory: EngineReplacementJournal.directory(in: support), profile: profile)
+                    }.value
+                } catch {
+                    logger.notice("terminal CREATE deferred: replacement admission unavailable")
+                    return .preserved(retryable: true, message: String(localized: LocalizedStringResource(
+                        "engineReplacement.creationBlocked",
+                        defaultValue: "Terminal launch is paused while the engine update is unresolved. Resume the engine update to continue.",
+                        comment: "A pending engine replacement blocks new execution, while existing sessions can reconnect."
+                    )))
+                }
+                // Retain the shared file lock across the entire asynchronous
+                // POST. Scope exit, including throws, releases only the lease;
+                // the persisted intent still protects an uncertain CREATE.
+                defer { withExtendedLifetime(lease) {} }
                 response = try await SoyehtAPIClient.shared.createLocalTerminal(request, context: context)
             }
             let owner = convStore.conversation(conversation.id)?.commander

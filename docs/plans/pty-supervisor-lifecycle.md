@@ -151,3 +151,34 @@ recusados. Não há limpeza cega do journal como recuperação.
 
 Os primitives de observação e os testes isolados não liberam publicação,
 instalação nem a migração de sessões existentes por si mesmos.
+
+## Pacote e identidade sem executar candidatos
+
+O manifesto `SoyehtCore/Resources/embedded-engine-helpers.json` contém
+`executables` e `artifactReceipt`. Swift e os scripts de fetch/embed leem esse
+mesmo arquivo. O recibo `engine-build-info.json` viaja dentro do tarball e contém
+`artifact` (`version`, `git_sha`, `image_uuid`, `pty_supervisor_protocol`) e
+`executable_sha256`. O pin autentica o tarball; o recibo liga metadados aos bytes.
+
+O instalador nunca chama `--build-info` no candidato: o engine 0.1.30 ignora a
+opção e inicia o servidor. Só o produtor consulta o executável recém-compilado
+do snapshot conhecido. No pacote Phase0, a identidade vem de `engine_artifact`
+na atestação cujo hash já está ligado ao manifesto. A ausência desse campo
+recusa o pacote antigo. O consumidor lê o arquivo, exige Mach-O arm64 magro
+com um único UUID e verifica SHA-256 antes de copiar.
+
+O embed re-assina o executável, o que muda seus bytes. Depois de validar a
+entrada, faz codesign e atualiza o recibo para a saída, exigindo UUID constante.
+UUID é identidade de link, não prova de integridade: essa passagem depende do
+passo de assinatura controlado. O hash da saída identifica aquela saída exata,
+não promete assinatura reproduzível. O validador Python tem uma cópia vendorizada
+no consumidor; `check-engine-package-contract.py --theyos-repo <checkout>`
+exige igualdade byte a byte e exercita emissão, leitura e recusa de campo alterado.
+
+Estado desta fatia: gate do recibo e build de compilação do Mac passaram;
+o instalador independente do supervisor tem testes de operações injetadas.
+A integração desse instalador com o coordenador e a UI ainda falta. O pacote
+publicado 0.1.30 não contém supervisor nem recibo e é recusado deliberadamente.
+Não integrar o requisito ao main sem o pacote correspondente e o pin juntos.
+Os workflows ausentes e os pins de integridade Phase0 desatualizados no produtor
+continuam impedindo alegar validação integral de release; não foram contornados.

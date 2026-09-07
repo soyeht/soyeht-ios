@@ -1,0 +1,12 @@
+{
+  "executables": [
+    "theyos-engine",
+    "soyeht-ptyd",
+    "vmrunner_macos_ipc",
+    "store-ipc",
+    "terminal-ipc",
+    "theyos-ssh",
+    "theyos-provision-inject"
+  ],
+  "artifactReceipt": "engine-build-info.json"
+}
