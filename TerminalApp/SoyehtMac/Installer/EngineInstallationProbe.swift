@@ -1,10 +1,13 @@
 import Foundation
+import os
 import SoyehtCore
 
 /// Read-only adapter for one prepared installation. All commands and runtime
 /// requests are bounded by their adapters and execute off the main thread.
 /// Neither failed probes nor PID races authorize installing another daemon.
 struct EngineInstallationProbe {
+    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "engine-lifecycle")
+
     let supervisor: PTYSupervisorInstallation
     let enginePlist: URL
     let expectedEngineProgram: String
@@ -28,30 +31,38 @@ struct EngineInstallationProbe {
         let gui = command("gui", label)
         let userPresence = EngineBackgroundAgent.classifyPresence(user, domain: "user", label: label, uid: uid)
         let guiPresence = EngineBackgroundAgent.classifyPresence(gui, domain: "gui", label: label, uid: uid)
+        Self.logger.notice("engine.lifecycle.presence user=\(String(describing: userPresence), privacy: .public) user_status=\(user.status) gui=\(String(describing: guiPresence), privacy: .public) gui_status=\(gui.status)")
         if userPresence == .absent && guiPresence == .absent { return .absent }
-        guard userPresence != .unknown, guiPresence != .unknown else { return .unknown }
+        guard userPresence != .unknown, guiPresence != .unknown else { return unknown("job_presence_unknown") }
         // Two jobs can be alive during an interrupted domain migration. Do not
         // choose one and attribute the other's HTTP response to it.
-        guard (userPresence == .present) != (guiPresence == .present) else { return .unknown }
+        guard (userPresence == .present) != (guiPresence == .present) else { return unknown("multiple_engine_jobs") }
         let domain = userPresence == .present ? "user" : "gui"
         let result = domain == "user" ? user : gui
         guard let first = LaunchdJobSnapshot(output: result.output, domain: domain, label: label, uid: uid),
-              let firstPID = first.pid else { return .unknown }
+              let firstPID = first.pid else { return unknown("job_snapshot_unavailable") }
         let incarnation = readProcess(firstPID, uid)
-        guard let runtime = readRuntime() else { return .unknown }
+        guard let runtime = readRuntime() else { return unknown("runtime_unavailable") }
         let after = command(domain, label)
         guard after.status == 0,
               let second = LaunchdJobSnapshot(output: after.output, domain: domain, label: label, uid: uid),
-              second == first else { return .unknown }
+              second == first else { return unknown("job_changed_during_observation") }
         if runtime.isLegacyResponse {
             guard let incarnation, readProcess(firstPID, uid) == incarnation,
-                  runtime.processID == nil || runtime.processID == firstPID else { return .unknown }
+                  runtime.processID == nil || runtime.processID == firstPID else { return unknown("legacy_process_unverified") }
             let legacy = LegacyEngineObservation(process: incarnation, domain: domain, job: first)
-            return legacy.isValid(profile: supervisor.profile) ? .legacy(legacy) : .unknown
+            guard legacy.isValid(profile: supervisor.profile) else { return unknown("legacy_profile_unverified") }
+            Self.logger.notice("engine.lifecycle.observation state=legacy cause=kernel_job_and_response_verified")
+            return .legacy(legacy)
         }
-        guard runtime.processID == firstPID else { return .unknown }
+        guard runtime.processID == firstPID else { return unknown("runtime_process_mismatch") }
         return .present(runtime, targetConfigurationMatches: domain == "user"
             && first.path == enginePlist.path && first.program == expectedEngineProgram)
+    }
+
+    private func unknown(_ reason: String) -> EngineReplacementCoordinator.EngineObservation {
+        Self.logger.warning("engine.lifecycle.observation state=unknown cause=\(reason, privacy: .public)")
+        return .unknown
     }
 
     func removalDomain(for expected: EngineReplacementCoordinator.EngineObservation) -> String? {

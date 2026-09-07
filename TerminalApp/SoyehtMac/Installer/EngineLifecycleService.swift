@@ -1,6 +1,7 @@
 import CryptoKit
 import Darwin
 import Foundation
+import os
 import SoyehtCore
 
 /// Production adapter for a bounded replacement round. Run on a worker, never
@@ -14,7 +15,28 @@ enum EngineLifecycleService {
         let target: EngineArtifactIdentity
     }
 
+    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "engine-lifecycle")
+
     static func run(resume: Bool, consent: MigrationConsent? = nil) -> Coordinator.Outcome {
+        logger.notice("engine.lifecycle.begin resume=\(resume) consent=\(consent != nil)")
+        let outcome = performRound(resume: resume, consent: consent)
+        // Never stringify the associated observations: they include machine
+        // paths and process identities. Only closed outcome/reason names log.
+        let name: String
+        var reason = "none"
+        switch outcome {
+        case .readyWithContinuity: name = "readyWithContinuity"
+        case .readyNoReplacement: name = "readyNoReplacement"
+        case .readyAfterSupervisorRestart: name = "readyAfterSupervisorRestart"
+        case .readyAfterLegacyMigration: name = "readyAfterLegacyMigration"
+        case .legacyMigrationRequired: name = "legacyMigrationRequired"
+        case .unconfirmed(let value): name = "unconfirmed"; reason = String(describing: value)
+        }
+        logger.notice("engine.lifecycle.result outcome=\(name, privacy: .public) reason=\(reason, privacy: .public)")
+        return outcome
+    }
+
+    private static func performRound(resume: Bool, consent: MigrationConsent?) -> Coordinator.Outcome {
         let profile = SoyehtInstallProfile.current
         let support = EnginePackager.soyehtSupportDirectory
         let installation = PTYSupervisorInstallation(profile: profile, home: FileManager.default.homeDirectoryForCurrentUser)
@@ -84,6 +106,7 @@ enum EngineLifecycleService {
                    !PTYSupervisorInstaller.positivelyAbsent(installation: installation, run: runner) {
                     return .unconfirmed(.observationUnavailable)
                 }
+                logger.notice("engine.lifecycle.stage stage=package_staging")
                 try EnginePackager.stage(holding: journal)
                 let owner: PTYSupervisorStatus
                 switch PTYSupervisorInstaller.ensure(installation: installation, protocolVersion: artifact.ptySupervisorProtocol) {
@@ -91,6 +114,7 @@ enum EngineLifecycleService {
                 case .incompatible: return .unconfirmed(.supervisorIncompatible)
                 case .unconfirmed: return .unconfirmed(.observationUnavailable)
                 }
+                logger.notice("engine.lifecycle.stage stage=supervisor_verified")
                 let plist = try preparedPlist(profile: profile, supervisor: installation)
                 let record = EngineReplacementJournal.Record(formatVersion: 2, operationID: UUID(), profileKind: profile.kind.rawValue,
                     expectedArtifact: artifact, plistDigest: digest(plist), priorEnginePID: priorPID,
@@ -155,6 +179,9 @@ enum EngineLifecycleService {
                 waitBeforeObservation: { Thread.sleep(forTimeInterval: 0.2) }
             ))
             return coordinator.run()
+        } catch let error as EngineReplacementJournal.Failure {
+            logger.error("engine.lifecycle.journal_unavailable cause=\(String(describing: error), privacy: .public)")
+            return .unconfirmed(.journalUnavailable)
         } catch {
             return .unconfirmed(.preparationUnavailable)
         }

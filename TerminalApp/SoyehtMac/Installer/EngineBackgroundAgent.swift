@@ -34,8 +34,14 @@ enum EngineBackgroundAgent {
     static func classifyPresence(_ result: Result, domain: String, label: String, uid: UInt32) -> JobPresence {
         if result.status == 0 { return .present }
         let lines = result.output.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        if result.status == 113,
-           lines.contains("Could not find service \"\(label)\" in domain for uid: \(uid)") { return .absent }
+        // launchctl names an existing GUI domain differently from a user
+        // domain. Match only the requested domain, label and UID; unknown
+        // output/status still cannot authorize loading or replacing a job.
+        let missingService = domain == "gui"
+            ? "Could not find service \"\(label)\" in domain for user gui: \(uid)"
+            : "Could not find service \"\(label)\" in domain for uid: \(uid)"
+        if ["user", "gui"].contains(domain), result.status == 113,
+           lines.contains(missingService) { return .absent }
         if result.status == 112, domain == "gui",
            lines.contains("Could not find domain for user gui: \(uid)") { return .absent }
         return .unknown

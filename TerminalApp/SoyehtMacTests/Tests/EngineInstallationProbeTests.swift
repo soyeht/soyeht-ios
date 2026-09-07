@@ -45,7 +45,7 @@ final class EngineInstallationProbeTests: XCTestCase {
                 enginePlist: URL(fileURLWithPath: "/tmp/fixture-engine.plist"), expectedEngineProgram: "/bin/zsh", uid: 123,
                 run: { _, args, _ in
                     if args[1].hasPrefix("gui/") {
-                        return self.result("Could not find service \"\(self.spec.profile.engineLaunchdLabel)\" in domain for uid: 123", status: 113)
+                        return self.result("Could not find service \"\(self.spec.profile.engineLaunchdLabel)\" in domain for user gui: 123", status: 113)
                     }
                     return self.result("""
                     user/123/\(self.spec.profile.engineLaunchdLabel) = {
@@ -111,7 +111,7 @@ final class EngineInstallationProbeTests: XCTestCase {
         for commandStatus in [Int32(113), 114] {
             let observer = probe { _, args, _ in
                 if args.first == "--status" { return self.result("", status: 2) }
-                return self.result("Could not find service \"\(self.spec.profile.engineLaunchdLabel)\" in domain for uid: 123", status: commandStatus)
+                return self.result("Could not find service \"\(self.spec.profile.engineLaunchdLabel)\" in domain for \(args[1].hasPrefix("gui/") ? "user gui" : "uid"): 123", status: commandStatus)
             }
             switch observer.observe().engine {
             case .absent: XCTAssertEqual(commandStatus, 113)

@@ -1,8 +1,8 @@
 # F2b — instalação, identidade e recuperação
 
-Desenho da integração ainda em implementação. Os ensaios de processos do F0
-não são aceite do launchd instalado. Nenhum comando deste documento foi
-executado sobre os serviços Dev ou de produção por esta faixa.
+Integração implementada e em validação no Dev instalado. Os ensaios de processos
+do F0 não são aceite do launchd instalado. A faixa de bancada instala e mede
+o Dev; produção continua fora dessa validação.
 
 ## O resultado que precisa ser observado
 
@@ -217,10 +217,34 @@ integração. A sonda Python agora mede shell, job longo e TUI separados, com
 escritores liberados apenas durante ausência observada por processo e porta,
 e espera todas as sentinelas DONE antes de recarregar. Seus controles isolados
 não substituem as corridas do Dev instalado. Essas corridas continuam pendentes
-até entrega do bundle assinado ao responsável pela faixa Dev.
+até a migração pelo próprio app e o ensaio do bundle assinado na faixa Dev.
 
 O pacote publicado 0.1.30 não contém supervisor nem recibo e é recusado
 deliberadamente. Não integrar o requisito ao main sem o pacote correspondente e
 o pin juntos. Os workflows ausentes e os pins de integridade Phase0 desatualizados
 no produtor continuam impedindo alegar validação integral de release; não foram
 contornados.
+
+## Recusas observadas na primeira migração Dev
+
+O engine publicado responde `version: "unknown"` com `update_available` booleano
+quando o cache de versão está vazio. Essa é uma resposta legada válida, não um
+timeout nem identidade de processo. O detector exige essa forma explícita e a
+ausência dos campos novos; JSON vazio, `unknown` sozinho e resposta malformada
+continuam desconhecidos. Consentimento ainda depende da identidade do kernel,
+da configuração do job e do perfil, conferidos antes/depois do readback.
+
+A segunda recusa veio da observação do launchd: a ausência do serviço dentro de
+um domínio gráfico existente usa `in domain for user gui`, enquanto a consulta
+no domínio user usa `in domain for uid`. O classificador confere a mensagem do
+domínio solicitado, label, UID e código, recusando as demais combinações. A
+correção foi executada em uma consulta somente de leitura aos jobs reais do
+Dev; a matriz negativa também cobre as respostas com domínio/label/UID/código
+alterados. Isso prova classificação, não migração nem sobrevivência de PTY.
+
+O ciclo registra início, presença por domínio, causa de observação desconhecida,
+etapas de preparação e resultado. Os logs não incluem argv, credenciais nem o
+conteúdo associado das observações. Erro de journal conserva seu diagnóstico,
+sem ser confundido com pacote incompatível. Uma falha de emissão de ticket
+mantém sua causa e decisão de retry até a pane; a mensagem de indisponibilidade
+não afirma duração. Uma mensagem de tela sozinha não prova envio de CREATE.
