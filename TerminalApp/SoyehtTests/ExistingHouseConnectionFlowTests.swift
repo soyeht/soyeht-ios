@@ -181,4 +181,119 @@ final class ExistingHouseConnectionFlowTests: XCTestCase {
         XCTAssertEqual(connections, 0)
         XCTAssertNotEqual(model.phase, .paired(macName: "Test Mac"))
     }
+    func test_ownedHomeClaimWithoutEngineRouteStillOffersMacConnectionAfterConfirmation() async throws {
+        let house = try house()
+        let engine = URL(string: "http://100.64.0.1:\(EndpointPolicy.defaultBootstrapPort())")!
+        let offered = claim(house)
+        let claim = SetupInvitationDirectClaim(
+            token: token, macEngineURL: engine,
+            macLocalPairing: offered.macLocalPairing, existingHouse: house,
+            installation: .current, event: .existingHouseOffered,
+            addressOffer: PairingAddressPolicy.legacyOffer(endpoints: [engine], installation: .current)
+        )
+        let phone = PhoneNetworkEvidence(hasTailnetAddress: false)
+        XCTAssertThrowsError(try claim.chooseAddress(phone: phone)) {
+            XCTAssertEqual($0 as? PairingAddressError, .noReachableAddress)
+        }
+        var connections: [SetupInvitationMacLocalPairing] = []
+        var enrollments = 0
+        let model = model(connect: { connections.append($0) }, enroll: { _ in enrollments += 1 })
+        defer { model.stop() }
+
+        // Start at discovery. Calling presentExistingHouse here would skip the
+        // engine-address guard that rejected the physical VPN-off run.
+        await model.handleDirectClaim(claim, phone: phone)
+        XCTAssertNotNil(model.pendingExistingHouse)
+        XCTAssertEqual(model.fingerprintWords.count, 6)
+        XCTAssertTrue(connections.isEmpty, "discovery must not install the secret")
+        XCTAssertEqual(enrollments, 0)
+        try await XCTUnwrap(model.connectToExistingHouse()).value
+        XCTAssertEqual(connections, [try XCTUnwrap(claim.macLocalPairing)])
+        XCTAssertEqual(enrollments, 0)
+        XCTAssertEqual(model.phase, .paired(macName: "Test Mac"))
+    }
+
+    func test_discoveryRefusesOtherInvitationProfileAndUntypedClaims() async throws {
+        let house = try house()
+        let pairing = try XCTUnwrap(claim(house).macLocalPairing)
+        let engine = URL(string: "http://100.64.0.1:\(EndpointPolicy.defaultBootstrapPort())")!
+        let otherPort = EndpointPolicy.defaultBootstrapPort() == 8101 ? 8091 : 8101
+        let variants: [(SetupInvitationToken, PairingInstallIdentity?, SetupInvitationDirectClaim.Event?, URL)] = [
+            (SetupInvitationToken(), .current, .existingHouseOffered, engine),
+            (token, nil, .existingHouseOffered, engine),
+            (token, PairingInstallIdentity(profile: "other", bootstrapPort: otherPort), .existingHouseOffered, engine),
+            (token, .current, .existingHouseOffered, URL(string: "http://100.64.0.1:\(otherPort)")!),
+            (token, .current, nil, engine),
+            (token, .current, .bootstrapClaimAccepted, engine)
+        ]
+        for (invitation, installation, event, endpoint) in variants {
+            let model = model(connect: { _ in XCTFail("invalid claim cannot connect") },
+                              enroll: { _ in XCTFail("invalid claim cannot enroll") })
+            defer { model.stop() }
+            let claim = SetupInvitationDirectClaim(token: invitation, macEngineURL: endpoint,
+                macLocalPairing: pairing, existingHouse: house, installation: installation,
+                event: event, addressOffer: PairingAddressPolicy.legacyOffer(endpoints: [engine], installation: .current))
+            await model.handleDirectClaim(claim, phone: .init(hasTailnetAddress: false))
+            XCTAssertNil(model.pendingExistingHouse)
+            XCTAssertNil(model.connectToExistingHouse())
+        }
+    }
+
+    func test_firstOwnerStillRequiresAnEligibleEngineRouteEvenWithLocalCredential() async throws {
+        let engine = URL(string: "http://100.64.0.1:\(EndpointPolicy.defaultBootstrapPort())")!
+        var qr = URLComponents(string: "soyeht://household/pair-device")!
+        qr.queryItems = [
+            URLQueryItem(name: "v", value: "1"),
+            URLQueryItem(name: "hh_pub", value: P256.Signing.PrivateKey().publicKey.compressedRepresentation.soyehtBase64URLEncodedString()),
+            URLQueryItem(name: "nonce", value: Data(repeating: 3, count: 32).soyehtBase64URLEncodedString()),
+            URLQueryItem(name: "ttl", value: String(Int(Date().timeIntervalSince1970) + 600)),
+            URLQueryItem(name: "m_cert_fp", value: Data(repeating: 4, count: 32).soyehtBase64URLEncodedString()),
+            URLQueryItem(name: "crit", value: "m_cert_fp")
+        ]
+        let qrURL = try XCTUnwrap(qr.url)
+        XCTAssertNoThrow(try PairDeviceQR(url: qrURL), "fixture must be a valid first-owner link")
+        let first = SetupInvitationExistingHouse(name: "New Home", hostLabel: "Test Mac",
+                                                 pairDeviceURI: qrURL.absoluteString)
+        let model = model(connect: { _ in XCTFail("first owner must not skip enrollment") },
+                          enroll: { _ in XCTFail("no engine route was available") })
+        defer { model.stop() }
+        let incoming = SetupInvitationDirectClaim(token: token, macEngineURL: engine,
+            macLocalPairing: claim(first).macLocalPairing, existingHouse: first,
+            installation: .current, event: .existingHouseOffered,
+            addressOffer: PairingAddressPolicy.legacyOffer(endpoints: [engine], installation: .current))
+        await model.handleDirectClaim(incoming, phone: .init(hasTailnetAddress: false))
+        XCTAssertNil(model.pendingExistingHouse)
+        guard case .stalled(.pairingFailure(let failure)) = model.phase else {
+            return XCTFail("first-owner HTTP route refusal must remain explicit")
+        }
+        XCTAssertEqual(failure.cause, .address(.noReachableAddress))
+    }
+
+    func test_lateLocalClaimCanReachTheConfirmedCardWithoutAnEngineRoute() async throws {
+        let house = try house()
+        let engine = URL(string: "http://100.64.0.1:\(EndpointPolicy.defaultBootstrapPort())")!
+        let local = try XCTUnwrap(claim(house).macLocalPairing)
+        var connections = 0
+        let model = model(timeout: .seconds(2), connect: { _ in connections += 1 },
+                          enroll: { _ in XCTFail("must not enroll") })
+        defer { model.stop() }
+        let initialEngine = URL(string: "http://192.168.1.10:\(EndpointPolicy.defaultBootstrapPort())")!
+        let first = SetupInvitationDirectClaim(token: token, macEngineURL: initialEngine,
+            existingHouse: house, installation: .current, event: .existingHouseOffered,
+            addressOffer: PairingAddressPolicy.legacyOffer(endpoints: [initialEngine], installation: .current))
+        XCTAssertNoThrow(try first.chooseAddress(phone: .init(hasTailnetAddress: false)),
+                         "the early card fixture must have an eligible engine route")
+        await model.handleDirectClaim(first, phone: .init(hasTailnetAddress: false))
+        let task = try XCTUnwrap(model.connectToExistingHouse())
+        await Task.yield()
+        XCTAssertEqual(connections, 0)
+        let late = SetupInvitationDirectClaim(token: token, macEngineURL: engine,
+            macLocalPairing: local, existingHouse: house, installation: .current, event: .existingHouseOffered,
+            addressOffer: PairingAddressPolicy.legacyOffer(endpoints: [engine], installation: .current))
+        await model.handleDirectClaim(late, phone: .init(hasTailnetAddress: false))
+        await task.value
+        XCTAssertEqual(connections, 1)
+        XCTAssertEqual(model.phase, .paired(macName: "Test Mac"))
+    }
+
 }

@@ -580,72 +580,117 @@ final class AwaitingMacViewModel: ObservableObject {
         scheduleRecoveryHint()
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                awaitingMacLogger.info("direct_claim_received existing_house=\((claim.existingHouse != nil), privacy: .public) local_pairing=\((claim.macLocalPairing != nil), privacy: .public) already_found=\(self.alreadyFound, privacy: .public)")
-                // Bug 1 instrumentation (2026-05-21): dump the engine URL
-                // structure as the Foundation URL parser sees it. If the
-                // raw JSON string from the engine is well-formed but the
-                // URL gets mangled here (scheme/host/port drift), the
-                // log delta will make it obvious.
-                awaitingMacLogger.info("claim.received url=\(claim.macEngineURL.absoluteString, privacy: .public) scheme=\(claim.macEngineURL.scheme ?? "<nil>", privacy: .public) host=\(claim.macEngineURL.host ?? "<nil>", privacy: .public) port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)")
-                self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
-                // The install-profile guard runs before the latch now: a late
-                // claim still has to come from this build's engine, and the
-                // late-claim branch below needs that answer too.
-                guard Self.engineURLMatchesCurrentInstallProfile(claim.macEngineURL) else {
-                    awaitingMacLogger.info(
-                        "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
-                    )
-                    return
-                }
-                // Only the phone can combine its network evidence with the
-                // engine's operation-specific offer to select a destination.
-                let chosen: PairingAddressDecision
-                do {
-                    chosen = try claim.chooseAddress()
-                } catch {
-                    let failure = PairingAttemptFailure.capture(error, stage: .discovery, endpoint: claim.macEngineURL)
-                    awaitingMacLogger.error("pairing.failed \(failure.diagnostic, privacy: .public)")
-                    self.recordFailure(failure)
-                    return
-                }
-                awaitingMacLogger.info(
-                    "claim.engine_address reason=\(chosen.reason.rawValue, privacy: .public) chosen=\(chosen.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
-                )
-                // The second address gets the same admission as the first: it
-                // is carried in the same claim by the same peer, and a build
-                // filter that only covered one of them would be no filter.
-                guard Self.engineURLMatchesCurrentInstallProfile(chosen.url) else {
-                    awaitingMacLogger.info(
-                        "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(chosen.url.port.map(String.init) ?? "<nil>", privacy: .public)"
-                    )
-                    return
-                }
-                let engineURL = chosen.url
-                if self.alreadyFound {
-                    self.acceptLateClaim(claim)
-                    return
-                }
-                if let existingHouse = claim.existingHouse {
-                    awaitingMacLogger.info("direct_claim_present_existing_house")
-                    self.alreadyFound = true
-                    self.presentExistingHouse(
-                        existingHouse,
-                        engineURL: engineURL,
-                        deferredLocalPairing: claim.macLocalPairing,
-                        deferredClaim: claim
-                    )
-                    return
-                }
-                await self.resolveDiscoveredMac(
-                    engineURL: engineURL,
-                    claimToken: self.tokenBytes,
-                    localPairing: claim.macLocalPairing
-                )
+                await self?.handleDirectClaim(claim)
             }
         }
         publisher.start()
         startMacBrowser()
+    }
+
+    /// Entry point shared by the publisher callback and discovery behavior tests.
+    /// Phone network evidence selects HTTP ceremony routes, not presence routes.
+    func handleDirectClaim(
+        _ claim: SetupInvitationDirectClaim, phone: PhoneNetworkEvidence = .current()
+    ) async {
+        awaitingMacLogger.info("direct_claim_received existing_house=\((claim.existingHouse != nil), privacy: .public) local_pairing=\((claim.macLocalPairing != nil), privacy: .public) already_found=\(self.alreadyFound, privacy: .public)")
+        // Bug 1 instrumentation (2026-05-21): dump the engine URL
+        // structure as the Foundation URL parser sees it. If the
+        // raw JSON string from the engine is well-formed but the
+        // URL gets mangled here (scheme/host/port drift), the
+        // log delta will make it obvious.
+        awaitingMacLogger.info("claim.received url=\(claim.macEngineURL.absoluteString, privacy: .public) scheme=\(claim.macEngineURL.scheme ?? "<nil>", privacy: .public) host=\(claim.macEngineURL.host ?? "<nil>", privacy: .public) port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)")
+        self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
+        // The install-profile guard runs before the latch now: a late
+        // claim still has to come from this build's engine, and the
+        // late-claim branch below needs that answer too.
+        guard Self.engineURLMatchesCurrentInstallProfile(claim.macEngineURL) else {
+            awaitingMacLogger.info(
+                "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)"
+            )
+            return
+        }
+        // The publisher verifies these on decode. Keep that admission at the
+        // consumer boundary too: the local branch does not call chooseAddress,
+        // whose installation check previously guarded every direct claim.
+        guard claim.token.bytes == tokenBytes else { return }
+        guard claim.installation == .current else {
+            let failure = PairingAttemptFailure(stage: .discovery, endpoint: claim.macEngineURL,
+                                                cause: .address(.profileMismatch))
+            awaitingMacLogger.error("pairing.failed \(failure.diagnostic, privacy: .public)")
+            self.recordFailure(failure)
+            return
+        }
+        if claim.event == .existingHouseOffered,
+           claim.macLocalPairing != nil,
+           let existingHouse = claim.existingHouse,
+           let pairURL = URL(string: existingHouse.pairDeviceURI),
+           (try? HouseholdDevicePairingLink(url: pairURL)) != nil {
+            // This offer connects to presence/attach on the Mac. It does not
+            // enroll in the household, so an HTTP addDevice route is not a
+            // prerequisite. Keep the advertised engine URL as link metadata;
+            // no HTTP request or reachability claim is made for it here.
+            // Connect still verifies the displayed home+nonce and awaits the
+            // authenticated presence handshake before declaring success.
+            if self.alreadyFound {
+                self.acceptLateClaim(claim)
+                return
+            }
+            self.presentExistingHouse(
+                existingHouse, engineURL: claim.macEngineURL,
+                deferredLocalPairing: claim.macLocalPairing, deferredClaim: claim
+            )
+            if self.pendingExistingHouse != nil {
+                self.alreadyFound = true
+                self.errorMessage = nil
+                self.diagnosticMessage = nil
+                awaitingMacLogger.info("direct_claim_present_mac_local_house engine_route_required=false")
+            }
+            return
+        }
+        // Only the phone can combine its network evidence with the
+        // engine's operation-specific offer to select a destination.
+        let chosen: PairingAddressDecision
+        do {
+            chosen = try claim.chooseAddress(phone: phone)
+        } catch {
+            let failure = PairingAttemptFailure.capture(error, stage: .discovery, endpoint: claim.macEngineURL)
+            awaitingMacLogger.error("pairing.failed \(failure.diagnostic, privacy: .public)")
+            self.recordFailure(failure)
+            return
+        }
+        awaitingMacLogger.info(
+            "claim.engine_address reason=\(chosen.reason.rawValue, privacy: .public) chosen=\(chosen.url.absoluteString, privacy: .public) lan_offered=\((claim.macEngineLocalNetworkURL != nil), privacy: .public)"
+        )
+        // The second address gets the same admission as the first: it
+        // is carried in the same claim by the same peer, and a build
+        // filter that only covered one of them would be no filter.
+        guard Self.engineURLMatchesCurrentInstallProfile(chosen.url) else {
+            awaitingMacLogger.info(
+                "direct_claim_ignored_profile_mismatch expected_port=\(EndpointPolicy.defaultBootstrapPort(), privacy: .public) claim_port=\(chosen.url.port.map(String.init) ?? "<nil>", privacy: .public)"
+            )
+            return
+        }
+        let engineURL = chosen.url
+        if self.alreadyFound {
+            self.acceptLateClaim(claim)
+            return
+        }
+        if let existingHouse = claim.existingHouse {
+            awaitingMacLogger.info("direct_claim_present_existing_house")
+            self.alreadyFound = true
+            self.presentExistingHouse(
+                existingHouse,
+                engineURL: engineURL,
+                deferredLocalPairing: claim.macLocalPairing,
+                deferredClaim: claim
+            )
+            return
+        }
+        await self.resolveDiscoveredMac(
+            engineURL: engineURL,
+            claimToken: self.tokenBytes,
+            localPairing: claim.macLocalPairing
+        )
     }
 
     /// A Mac claim that lands *after* the radar has already latched.
