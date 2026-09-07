@@ -5,8 +5,9 @@ is claimed. The personal phone is excluded from the current experiment.
 
 ## Artifact work executed
 
-`make qa-ios-export` was run on a real locally exported IPA from the corrected
-pairing source. The IPA was not uploaded or installed by these checks.
+`make qa-ios-export` was run on a real locally exported IPA from the owner-approval
+correction (`57b2f54b`). This export does not contain the later LAN correction
+`ba31526e`. The IPA was not uploaded or installed by these checks.
 
 | Observation | Result |
 | --- | --- |
@@ -216,8 +217,8 @@ Code review traced the refusal to the discovery callback selecting an HTTP
 `addDevice` route before distinguishing Mac-local confirmation. The latter uses
 the separately supplied presence/attach credential and does not enroll the
 phone in the household. A missing eligible engine route therefore blocks a
-different operation. The correction is being developed separately; a proposed
-change or a unit test will not change this physical result into a pass.
+different operation. The correction was developed separately in `ba31526e`. The failing run remains
+a failure; its subsequent physical comparison is recorded below.
 
 | Local evidence | SHA-256 |
 | --- | --- |
@@ -227,10 +228,134 @@ change or a unit test will not change this physical result into a pass.
 | VPN state after driver | `61f0491b1a6746c9b2be50eca24b50411cc38152936425d9033bc8058d07c620` |
 | Baseline restored | `5e10e7cad5e748c5576020b6b73a5b94f3eafda9e57d62a388b4fd9a9fdc78c1` |
 
-Deliberate Wi-Fi-only pairing is now **FAILED in the observed discovery path**.
-Fresh-command reconnect, retained-keychain upgrade and TestFlight installation
-remain **NOT RUN or awaiting evidence**. Do not infer their results from this
-comparison.
+### LAN correction: same discovery input, then a physical VPN-off run
+
+`ba31526e47f323e28a12ddc510518819e068561a` changes the actual claim consumer and
+its tests. A claim can offer Mac-local confirmation without an eligible engine
+HTTP route only when its event is `existingHouseOffered`, it carries the local
+credential, and its pairing URL parses as `HouseholdDevicePairingLink`. The
+invitation token and installation profile are checked before this branch.
+The event alone does not distinguish first-owner setup: a first-owner
+`PairDeviceQR` in the same event still follows strict HTTP route selection.
+The credential remains deferred until Connect, and authenticated presence is
+required before leaving the card. No household enrollment is started.
+
+The behavioral test invokes `handleDirectClaim` with an input whose HTTP
+`chooseAddress` explicitly throws `noReachableAddress`. Before the fix, the
+actual card/Connect assertions failed. After the fix, 12 consumer tests and 43
+existing presentation guards passed (55 total, no failures). Negative cases
+include token/profile/port/event mismatches, first-owner input without an engine
+route, and a late local credential arriving at the existing confirmation card.
+
+The physical candidate is development-signed `com.soyeht.app.dev` 1.1.19 (21),
+built from that clean revision and read back as build 21 from the test phone's
+installed-app inventory. Its actual phone events name `Soyeht.debug.dylib` UUID
+`3B8155A8-1C58-3336-A6A0-1B08A49FDE44`, matching the signed local artifact
+(SHA-256 `638d03687198eb375b25518e91d1e12de65605a67b58c6cfb24e80d1c5c0d7a8`).
+The Mac Dev app remained the existing `57b2f54b` build; no Mac/engine replacement
+was needed for this correction.
+
+In the observed 18:19:53–18:21:04 driver window, the fresh phone identity was
+created at 18:19:59.578. The new Mac-local card branch ran at 18:20:13.477.
+The phone sent HMAC and received acknowledgment at 18:20:16.461/.479;
+`mac_connection_confirmed household_enrolled=false` followed. The Mac
+credential/authentication/attach records name that same fresh phone. Its pane
+stream attached at 18:21:00.181, and the driver completed its terminal action.
+Household hashes for all ten observed files match before/after; the captured
+engine log has no device-pairing request or approval.
+
+A separate terminal challenge was then typed through the still-open phone app
+at 18:21:21–18:21:27. The fresh output path was observed absent before input;
+the Mac file's bytes were compared to the newly generated nonce and matched
+exactly. This action is **outside** the original collector's driver window:
+its own gesture script and timestamped `challenge.json` retain the observation.
+The file was independently reread and still matched. This is stronger than the
+earlier `touch` marker, and is not retroactively attributed to the old captures.
+
+VPN Not Connected=0 was read from Settings before the driver and after the
+extra command. Connect On Demand was also observed off. The phone's presence
+used the local hostname and the Mac observed a LAN link-local peer. The engine
+endpoint persisted in the phone is still a tailnet address; initial successful
+presence cannot by itself establish how reopening uses that stored endpoint.
+Finally, Connect On Demand=1 and VPN Connected=1 were read back. Independent
+review confirmed the fresh subjects, exact nonce file, VPN observations,
+unchanged household and absence of enrollment.
+
+| Local evidence | SHA-256 |
+| --- | --- |
+| Fixed VPN-off transcript | `d9811486722f0468ba28d2b547507585a7218f02f10bb1d71bac0ca79fc81e39` |
+| Phone event JSON, including sender image | `d6ff303722932eb4fbe3af9c3a6840c61dbc102e6322f46d78316eb62190b121` |
+| Exact-content command observation | `5b0025b1a490696c9e1e504705008aba7d0a4bcdbfba1eedf4d9496d214eb229` |
+| VPN before driver | `9e16c46e7e9d12dd31bc2b33085c983ce780e3151fea12e98c61b97831b24a69` |
+| VPN after command | `91ae3661202673ebd46618755a2be9bd81540f6f4a01f6c3a93f3d833798db2e` |
+| Restored baseline | `c1d10911eeaa9076563bed6d184ea58effc2e0f48b3b3858e4e818f13ac46aa9` |
+
+This is a physical **pass for initial Mac-local pairing and terminal use with
+the phone VPN disabled**, following a physical product failure before the fix
+on the same dedicated pair. It does not establish an installation through the
+store, another phone/network, a retained-keychain upgrade, remote access, or all
+supported first-owner scenarios. The phone-app relaunch observation follows below; network-loss recovery is a
+separate case and is not inferred from relaunch.
+
+### Reopening the same pane with VPN still off
+
+A separate run reused the newly paired phone and the same terminal pane, with
+no reset or enrollment. VPN Not Connected=0 was observed at 18:32:21, before
+opening the app. The first new command wrote a fresh nonce and its shell PID to
+previously absent paths. The nonce was compared byte-for-byte on the Mac, and
+`ps` independently read that PID, parent, start time and TTY.
+
+The operator then terminated **only the observed Dev phone app PID** using
+`devicectl` SIGTERM, reopened the app through WDA and selected the exact same
+pane row. This is a process relaunch test, not a claim to have performed a
+manual app-switcher gesture. The phone PID changed. Both app processes emitted
+events from the build-21 code image identified above. Presence chose the local
+hostname before and after relaunch; the second HMAC/ack occurred at
+18:32:43.851/.871. Mac logs show fresh attach grants and stream attachment for
+the target pane at 18:32:30.118 and 18:32:50.557.
+
+The reopened terminal accepted a second fresh-nonce command. Both output files
+were reread with exact contents, and the shell's kernel identity remained the
+same. Read-only engine inventories agree on the target's `session_instance_id`,
+PID and supervisor backend; both reported PIDs equal the command's shell PID.
+The supervisor PID and boot ID also remained unchanged. No engine or supervisor
+restart was performed. Other listed panes were not driven.
+
+VPN Not Connected=0 was still observed at 18:33:39 and Connect On Demand=0 at
+18:33:41, after both commands. They were restored to 1, with VPN Connected=1 at
+18:33:48. The owned Mac log capture was terminated in `finally`. Phone history
+was collected afterward using the observed 18:31:30–18:33:02 action interval;
+both authentication sequences and the loaded code identity are present.
+
+| Relaunch evidence | SHA-256 |
+| --- | --- |
+| Run result | `ef9dba365de6b2af7e6bd02b2dcc619056cc25a539d78f69623eb3af06e9e691` |
+| First exact-content command | `16581247140e6f6b47b3882751c850b08fbf9906b96645489f7a070b2332e7ab` |
+| Second exact-content command | `b6c844f31b3240fd8311856edfd1a6deb69d83a46b6ebded6d97999829b3ceec` |
+| Phone event JSON | `f46f8d38c3e767230ebb5a55839abe7a847dacfacfbb4d052f2e10ec629d3011` |
+| Mac capture | `0ff87feb1948840817909a4c51cea21793ece10afd0bbb63378f75478418eb8d` |
+| VPN off before | `05b1b909a9ea9c458f9f034d8d685ab64289174dcb5c76d921003b05b433f61d` |
+| VPN off after | `c9ecef9e42d85e393935e8ab21a709cfcb5237f3448d5e81e3a14194b26a2d9e` |
+| VPN restored | `22d9b9f3b290fcf3c98fce34e16f89067b8dce94b8458de7c9cb4b3ee2f84218` |
+
+This closes **app relaunch and same-session terminal reuse with the phone VPN
+disabled in this fixture**, including the case where a tailnet engine address
+remains persisted. It does not cover losing/restoring Wi-Fi, moving outside the
+LAN, rebooting the phone, or upgrading to a store-distributed app. Those remain
+separate, unmeasured cases.
+
+## Coverage remaining
+
+The two observed product regressions now have before/after evidence on the
+physical Dev pair: owner-approval dependency and the unnecessary engine-route
+requirement. VPN-off initial terminal use and VPN-off app relaunch are measured.
+Broad-distribution acceptance remains **INCOMPLETE**: there is no TestFlight
+installation of this LAN fix, no retained-keychain upgrade of the distributed
+iOS app, and no physical matrix across supported OS/device/locale combinations,
+first-owner setup, or a genuinely remote network in this work. The local IPA
+inspection near the top of this report belongs to the earlier owner-approval
+fix, not the build-21 LAN candidate. No customer device or production service was
+modified during these additional LAN runs.
 
 See [the acceptance procedure](../../domains/production-pairing-acceptance.md)
 for evidence requirements and the laboratory/distribution limitations. No

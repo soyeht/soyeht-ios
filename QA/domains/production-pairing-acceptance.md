@@ -7,7 +7,9 @@ gate, and a successful IPA inspection is not permission to publish.
 The initial physical Dev runs on 2026-09-07 demonstrated a real phone authenticating
 to a real Mac and operating its terminal. They did not demonstrate a TestFlight
 installation, an upgrade retaining a customer's keychain, or a deliberately
-configured Wi-Fi-only run. Passing them cannot fill those missing results.
+configured Wi-Fi-only run. Passing them cannot fill those missing results. Later VPN-off discovery and app-relaunch
+comparisons are recorded in the dated run report; they do not fill distribution
+or upgrade coverage.
 
 ## Inspect the candidate that will be uploaded
 
