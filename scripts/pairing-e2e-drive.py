@@ -519,9 +519,10 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
                 "drove_to_the_end": False}
 
     opened = open_add_iphone(mac_process)
-    note("opened Add iPhone on the Mac" if opened else
-         "Add iPhone unavailable here; the Mac's automatic listener claims the "
-         "advertising phone on its own", True)
+    note("opened Add iPhone on the Mac", opened,
+         "" if opened else "osascript lacks assistive access here; the Mac's "
+         "automatic listener claims the advertising phone on its own — a bench "
+         "limitation, not a pairing result")
 
     found = phone.wait_for(ID_CARD, budget)
     note("the phone found the Mac", found,
@@ -597,9 +598,10 @@ def scenario_existing_house_new_phone(phone: Phone, mac_process: str, budget: fl
                 "drove_to_the_end": False}
 
     opened = open_add_iphone(mac_process)
-    note("opened Add iPhone on the Mac" if opened else
-         "Add iPhone unavailable here; the Mac's automatic listener claims the "
-         "advertising phone on its own", True)
+    note("opened Add iPhone on the Mac", opened,
+         "" if opened else "osascript lacks assistive access here; the Mac's "
+         "automatic listener claims the advertising phone on its own — a bench "
+         "limitation, not a pairing result")
 
     found = phone.wait_for(ID_CARD, budget)
     note("the phone found the Mac", found,

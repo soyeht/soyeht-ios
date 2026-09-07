@@ -527,21 +527,8 @@ def inv_mac_local(t: Transcript, household_devices: int | None,
         return Finding("MAC-LOCAL", "fail",
                        "the phone's accepted ack names a different Mac than the "
                        "one it sent the HMAC to")
-    own = _ids(t.phone_grep("device_id_generated"), _OWN_DEVICE_ID)
-    subject_device = {expected_device.upper()} if expected_device else own
-    if subject_device and not (subject_device & issued & mac_authenticated):
-        return Finding("MAC-LOCAL", "fail",
-                       "the Mac's issued/authenticated device is not the phone "
-                       "under test — a consistent pair, but not this run's")
-    if expected_mac and expected_mac.upper() not in (sent_to & phone_authenticated):
-        return Finding("MAC-LOCAL", "fail",
-                       "the Mac the phone sent to and accepted is not the Mac "
-                       "under test — a consistent pair, but not this run's")
-    if not subject_device and not expected_mac:
-        return Finding("MAC-LOCAL", "fail",
-                       "no subject named: the phone minted no id in this tape "
-                       "and no --mac-id/--device-id was given, so the four lines "
-                       "cannot be tied to one pair")
+    # Behavioural outcome before identity: a ceremony raised, or a connection
+    # never confirmed, is a failure whether or not the pair can be named.
     if ceremony:
         return Finding("MAC-LOCAL", "fail",
                        "presence authenticated, but a household request was "
@@ -549,12 +536,34 @@ def inv_mac_local(t: Transcript, household_devices: int | None,
                        "gesture")
     if not confirmed:
         return Finding("MAC-LOCAL", "fail",
-                       "presence authenticated, but the app never confirmed "
-                       "the connection (no mac_connection_confirmed line)")
+                       "presence authenticated, but the app never confirmed the "
+                       "connection (no mac_connection_confirmed line)")
+    # It would pass on structure. The named-pair promise needs BOTH subjects:
+    # with only one, the unnamed half could be a consistent NEIGHBOUR pair and
+    # slip through ([jaime]). The phone names itself with device_id_generated (a
+    # reset always mints one), --device-id is the fallback; the Mac is --mac-id.
+    own = _ids(t.phone_grep("device_id_generated"), _OWN_DEVICE_ID)
+    subject_device = own or ({expected_device.upper()} if expected_device else set())
+    subject_mac = {expected_mac.upper()} if expected_mac else set()
+    if not subject_device or not subject_mac:
+        return Finding("MAC-LOCAL", "n/a",
+                       "cannot tie the four lines to the pair under test: needs "
+                       "the phone's own id (device_id_generated or --device-id) "
+                       "AND --mac-id; "
+                       f"phone {'named' if subject_device else 'unnamed'}, "
+                       f"Mac {'named' if subject_mac else 'unnamed'}")
+    if not (subject_device & issued & mac_authenticated):
+        return Finding("MAC-LOCAL", "fail",
+                       "the device the Mac issued to and authenticated is not "
+                       "the phone under test — a consistent pair, not this run's")
+    if not (subject_mac & sent_to & phone_authenticated):
+        return Finding("MAC-LOCAL", "fail",
+                       "the Mac the phone sent to and accepted is not the Mac "
+                       "under test — a consistent pair, not this run's")
     return Finding("MAC-LOCAL", "pass",
-                   "presence authenticated for the device the Mac issued the "
-                   "secret to, no household request raised (presence only; "
-                   "pane open/attach are their own readback)")
+                   "presence authenticated for the named phone-Mac pair, no "
+                   "household request raised (presence only; pane open/attach "
+                   "are their own readback)")
 
 
 def inv_house_unchanged(t: Transcript) -> Finding:
@@ -1064,6 +1073,18 @@ BAD_MAC_LOCAL_TWO_PAIRS = Transcript(
     engine=[],
 )
 
+# The good run, but the phone tape never minted an id — so without --device-id
+# the phone subject is unnamed and MAC-LOCAL cannot claim the pair (n/a).
+GOOD_MAC_LOCAL_NO_OWN = Transcript(
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
+    phone=["presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "existing_house.mac_connection_confirmed household_enrolled=false"],
+    engine=[],
+    house_before={"a": "1"}, house_after={"a": "1"},
+)
+
 # The phone sent its HMAC to one Mac and accepted an ack from another.
 BAD_MAC_LOCAL_WRONG_MAC = Transcript(
     mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
@@ -1317,6 +1338,7 @@ NO_PUBLISHER_LINES_AT_ALL = Transcript(
 def self_test() -> int:
     """Every case names the verdict each invariant MUST produce. A green that
     cannot turn red is not evidence of anything."""
+    M1 = "5D0F7C2E-0000-4000-8000-000000000001"  # the Mac under test, for MAC-LOCAL cases
     cases = [
         ("good, tailnet", GOOD_TAILNET, True, 0,
          {"TAILNET-KEPT": "pass", "NO-SILENT-LAN": "pass",
@@ -1342,13 +1364,17 @@ def self_test() -> int:
         ("bad, crossed profiles", BAD_CROSS_PROFILE, True, 2,
          {"PROFILE-ISOLATED": "fail"}),
         ("good, owned home authenticates the phone's presence", GOOD_MAC_LOCAL, False, 1,
-         {"MAC-LOCAL": "pass"}),
+         {"MAC-LOCAL": "pass"}, {"mac": M1}),
+        ("n/a, the good run but no --mac-id given", GOOD_MAC_LOCAL, False, 1,
+         {"MAC-LOCAL": "n/a"}),
+        ("n/a, the good run but the phone named no id", GOOD_MAC_LOCAL_NO_OWN, False, 1,
+         {"MAC-LOCAL": "n/a"}, {"mac": M1}),
         ("bad, owned home: phone waits on the owner instead",
          BAD_MAC_LOCAL_DEADLOCK, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, presence up but a household request raised anyway",
          BAD_MAC_LOCAL_CEREMONY_ANYWAY, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, two consistent pairs, neither under test",
-         BAD_MAC_LOCAL_TWO_PAIRS, False, 1, {"MAC-LOCAL": "fail"}),
+         BAD_MAC_LOCAL_TWO_PAIRS, False, 1, {"MAC-LOCAL": "fail"}, {"mac": M1}),
         ("bad, a neighbour's presence under this run's secret",
          BAD_MAC_LOCAL_NEIGHBOUR, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, HMAC to one Mac, ack from another",
@@ -1435,10 +1461,14 @@ def self_test() -> int:
     # A capture longer than the approval window, so "waited past the deadline"
     # is distinguishable from "the capture simply ended". The one case that
     # needs the opposite says so with its own value.
-    for label, transcript, has_tailnet, devices, expected in cases:
+    for row in cases:
+        label, transcript, has_tailnet, devices, expected = row[:5]
+        subjects = row[5] if len(row) > 5 else {}
         captured = 30.0 if label.startswith("short capture") else 600.0
         got = {f.name: f.verdict
-               for f in judge(transcript, has_tailnet, devices, captured)}
+               for f in judge(transcript, has_tailnet, devices, captured,
+                              expected_device=subjects.get("device"),
+                              expected_mac=subjects.get("mac"))}
         for name, want in expected.items():
             if got.get(name) != want:
                 print(f"  CALIBRATION FAILED  {label}: {name} "
