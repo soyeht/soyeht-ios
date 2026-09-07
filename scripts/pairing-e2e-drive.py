@@ -157,6 +157,19 @@ class Phone:
         except Exception as error:
             raise DriveError(f"{method} {path} -> {error}") from error
 
+    def open_url(self, url: str) -> None:
+        """Hands `url` to the phone the way a tapped link would.
+
+        The one caller today is `soyeht://debug/reset-local-state`. Reinstalling
+        the app is not a reset — the membership survives in the iOS keychain
+        (measured 2026-09-06) — and driving Settings to "Leave this household"
+        is the choreography `leave_household` refuses. The deep link is the
+        product's own reset, so this asks for exactly that.
+        """
+        if not self.session:
+            raise DriveError("open_url needs an app session; call open_app first")
+        self._call("POST", f"/session/{self.session}/url", {"url": url})
+
     def reachable(self) -> bool:
         try:
             return self._call("GET", "/status").get("value") is not None
@@ -382,6 +395,26 @@ def leave_household(udid: str, app_path: str | None) -> bool:
     return True
 
 
+def forget_home(phone: Phone, udid: str = "") -> bool:
+    """Makes the phone a NEW device to a home it already belonged to.
+
+    This is the owner's production shape on 2026-09-07: the home has an owner,
+    and the phone arriving is not that owner. `leave_household` cannot produce
+    it — an app reinstall keeps the keychain, so the phone comes back still
+    authenticated — but the app's own debug reset does. The result is checked
+    the same way `reset_took_effect` checks a reinstall: the welcome carousel
+    is the proof, never the absence of an error.
+    """
+    phone.open_app()
+    try:
+        phone.open_url("soyeht://debug/reset-local-state")
+    except DriveError:
+        return False
+    time.sleep(3)
+    phone.open_app()
+    return reset_took_effect(phone)
+
+
 def reset_took_effect(phone: Phone, budget: float = 25) -> bool:
     """Did the phone actually come back with no household?
 
@@ -499,7 +532,77 @@ def scenario_from_scratch(phone: Phone, mac_process: str, budget: float,
             "phone_approval_words": approval, "drove_to_the_end": tapped}
 
 
-SCENARIOS = {"from-scratch": scenario_from_scratch}
+def scenario_existing_house_new_phone(phone: Phone, mac_process: str, budget: float,
+                                      reset_phone: bool = False, udid: str = "",
+                                      app_path: str | None = None) -> dict:
+    """A home that already has an owner, and a phone that is not that owner.
+
+    The owner's production deadlock of 2026-09-07 in one run: the Mac's home is
+    `ready` with `device_count=1`, the arriving phone holds no membership, and
+    the only party who could approve a household join cannot act. The measure
+    is whether the phone still ends up with a usable Mac — presence
+    authenticated over the Mac-local secret — WITHOUT the household ceremony
+    being started or any session written. The probe judges that from the
+    tapes as MAC-LOCAL.
+
+    Returns what the DRIVER observed. None of it is a verdict.
+    """
+    steps: list[dict] = []
+
+    def note(what: str, ok: bool, detail: str = "") -> None:
+        steps.append({"step": what, "ok": ok, "detail": detail})
+
+    forgot = forget_home(phone, udid)
+    note("phone forgot its home (debug reset)", forgot,
+         "" if forgot else "the welcome carousel never came back — the phone is "
+         "still a member, and this run would not be the deadlock shape")
+    if not forgot:
+        return {"scenario": "existing house, new phone", "steps": steps,
+                "drove_to_the_end": False}
+
+    walked = walk_onboarding(phone)
+    note("walked the onboarding to the looking screen", walked,
+         "" if walked else "the phone never reached the screen where it advertises")
+    if not walked:
+        return {"scenario": "existing house, new phone", "steps": steps,
+                "drove_to_the_end": False}
+
+    open_add_iphone(mac_process)
+    note("opened Add iPhone on the Mac", True)
+
+    found = phone.wait_for(ID_CARD, budget)
+    note("the phone found the Mac", found,
+         "" if found else f"nothing within {budget:.0f}s — this is the spinner symptom")
+    if not found:
+        return {"scenario": "existing house, new phone", "steps": steps,
+                "drove_to_the_end": False}
+
+    words = [phone.text_of(f"soyeht.onboarding.isThisYourMac.word.{index}")
+             for index in range(1, 7)]
+    note("read the six words", all(words), " ".join(w or "?" for w in words))
+
+    tapped = phone.tap(ID_CONFIRM)
+    note("confirmed on the phone", tapped)
+
+    # The card must go away on its own: the Mac-local path finishes with the
+    # phone at home. Still on the card after the budget is the old deadlock.
+    left_card = False
+    deadline = time.monotonic() + budget
+    while time.monotonic() < deadline:
+        if phone.find(ID_CARD) is None and phone.find(ID_APPROVAL_WORDS) is None:
+            left_card = True
+            break
+        time.sleep(1)
+    note("the phone left the card without owner approval", left_card,
+         "" if left_card else "still on the card — the phone is waiting for an "
+         "owner who cannot answer")
+
+    return {"scenario": "existing house, new phone", "steps": steps,
+            "drove_to_the_end": tapped and left_card}
+
+
+SCENARIOS = {"from-scratch": scenario_from_scratch,
+             "existing-house-new-phone": scenario_existing_house_new_phone}
 
 
 def preflight(phone: Phone | None, mac_process: str) -> list[str]:
