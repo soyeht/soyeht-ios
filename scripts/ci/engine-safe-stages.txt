@@ -8,9 +8,17 @@
 # (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
 #
 # Provenance: generated + hand-minimized from the pinned engine source
-# theyos@1a8e57630b49ded40d3b1a1a6a64386e4953b663 (refs/tags/v0.1.30, the source
-# the shipped 0.1.30 engine asset is attested to; tree
-# ee2cc611a8341b21a80833dc68c38f6bd2517249).
+# theyos@e84f998a8390abfe70a95433b7f0ab513823dbd4 (refs/tags/v0.1.31, the source
+# the shipped 0.1.31 engine asset is attested to; tree
+# df0170b5e11fe30b83608548f8e06bf5a39491fb).
+#
+# Moved from v0.1.31's predecessor on 2026-09-07 and NOT grown. All twenty-three
+# tokens were re-verified present as compile-time literals in the v0.1.31 tree —
+# grepped against the checked-out tag, not assumed — and none were dropped.
+# Nothing was added: the PTY supervisor this release ships emits no `stage`
+# token at all, which was checked rather than presumed. An allowlist that grows
+# with every release stops being a closed list; this one only moves when the
+# engine actually says something new.
 #
 # Moved from v0.1.29 on 2026-09-06. All twenty tokens that were listed were
 # re-verified present as compile-time literals in the v0.1.30 tree — grepped
