@@ -22,6 +22,12 @@ import zipfile
 
 BUNDLE_ID = "com.soyeht.app"
 TEAM_ID = "W7677A5BK2"
+# The production app's accepted composition. Change this deliberately when
+# adding/removing a product extension, alongside its distribution review.
+EXTENSION_IDS = frozenset({
+    BUNDLE_ID + ".HouseCreatedNotificationService",
+    BUNDLE_ID + ".SoyehtLiveActivity",
+})
 MAX_UNPACKED_BYTES = 3 * 1024**3
 
 
@@ -84,6 +90,11 @@ def inspect_bundle(bundle: Path, *, root: bool, version: tuple | None = None) ->
     require(all(isinstance(x, str) and x for x in observed_version), "missing app version/build")
     require(version is None or version == observed_version,
             "extension version/build differs from the app")
+    if root:
+        identifiers = [plistlib.loads((path / "Info.plist").read_bytes())["CFBundleIdentifier"]
+                       for path in bundle.rglob("*.appex")]
+        require(len(identifiers) == len(EXTENSION_IDS) and set(identifiers) == EXTENSION_IDS,
+                "unexpected extension inventory (missing, extra or duplicate extension)")
     executable = info["CFBundleExecutable"]
     require(isinstance(executable, str) and bool(executable)
             and Path(executable).name == executable and executable not in (".", ".."),

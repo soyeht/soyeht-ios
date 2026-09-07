@@ -20,13 +20,16 @@ make qa-ios-export IOS_IPA=/path/to/export/Soyeht.ipa \
 
 The second input must be a real, valid development-signed app: it is the control
 that must be refused as a distribution artifact. The command also damages copies
-of the actual app/extension and removes a profile; each must be refused. Inputs
+of the actual app/extension, removes a profile and changes the extension inventory;
+each must be refused. Inputs
 are read-only and damaged copies live in a private temporary directory. Missing
 inputs or failed inspection stop the command.
 
 The inspector verifies Apple-anchored signatures for the production team,
 effective identifiers/entitlements, App Store profile shape, expiry, keychain
-groups and extension versions. Its JSON always keeps delivery `not_observed`
+groups, extension versions and the two expected production extension identities.
+Changing the app's extension composition requires an explicit acceptance-policy
+update. Its JSON always keeps delivery `not_observed`
 and pairing `not_measured`. It neither starts candidate code nor installs it.
 This is a local preflight; App Store Connect validation remains necessary.
 

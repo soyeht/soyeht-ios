@@ -36,6 +36,15 @@ def damage_executable(bundle):
         stream.write(bytes([byte[0] ^ 1]))
 
 
+def change_extension_identity(bundle, existing):
+    # Keep the count unchanged: checking only the number of extensions must
+    # not satisfy the policy that names the expected extensions.
+    info_path = bundle / existing / "Info.plist"
+    info = plistlib.loads(info_path.read_bytes())
+    info["CFBundleIdentifier"] = "com.soyeht.app.Unexpected"
+    info_path.write_bytes(plistlib.dumps(info))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("ipa", type=Path)
@@ -63,18 +72,27 @@ def main():
         original_app = next((root / "original" / "Payload").glob("*.app"))
         extension = next(original_app.rglob("*.appex"))
         cases = [
-            ("changed app executable", lambda app: damage_executable(app)),
+            ("changed app executable", lambda app: damage_executable(app), None),
             ("changed extension executable", lambda app: damage_executable(
-                app / extension.relative_to(original_app))),
-            ("missing profile", lambda app: (app / "embedded.mobileprovision").unlink()),
+                app / extension.relative_to(original_app)), None),
+            ("missing profile", lambda app: (app / "embedded.mobileprovision").unlink(), None),
+            ("missing extension", lambda app: shutil.rmtree(
+                app / extension.relative_to(original_app)), "unexpected extension inventory"),
+            ("unexpected extension with unchanged count", lambda app: change_extension_identity(
+                app, extension.relative_to(original_app)), "unexpected extension inventory"),
+            # Keep the set of identifiers unchanged, but duplicate one. A set
+            # comparison alone must not accept the extra extension.
+            ("duplicate extension with unchanged identity set", lambda app: shutil.copytree(
+                app / extension.relative_to(original_app), app / "PlugIns" / "Duplicate.appex"),
+             "unexpected extension inventory"),
         ]
-        for index, (label, mutate) in enumerate(cases):
+        for index, (label, mutate, reason) in enumerate(cases):
             app = root / f"case-{index}" / "Soyeht.app"
             shutil.copytree(original_app, app)
             mutate(app)
-            expect_refusal(label, lambda: inspect_bundle(app, root=True))
+            expect_refusal(label, lambda: inspect_bundle(app, root=True), reason=reason)
     require(digest(args.ipa) == original, "input IPA was modified")
-    print("Artifact controls: 5/5; input IPA unchanged. No device behavior was tested.")
+    print("Artifact controls: 8/8; input IPA unchanged. No device behavior was tested.")
 
 
 if __name__ == "__main__":

@@ -20,13 +20,17 @@ pairing source. The IPA was not uploaded or installed by these checks.
 | Damaged copy of main executable | Refused by codesign |
 | Damaged copy of extension executable | Refused by codesign |
 | Copy with missing profile | Refused by codesign |
+| Missing, unexpected or duplicate extension | All refused by the inventory check; changed identity keeps the count, duplicate keeps the identity set |
 | Missing required Make input | Stops with nonzero exit before inspection |
 
-Five artifact controls passed. The original IPA remained byte-identical. None
+Eight artifact controls passed. The original IPA remained byte-identical. None
 of these controls tested device behavior. The export's build number being 20
 does not establish that this number is available for a new App Store upload.
 In a disposable copy, disabling codesign verification made the calibration
 fail on the damaged app executable. This mutation was exercised, not assumed.
+Removing either the extension identity-set check or its count check in separate
+disposable copies also made the calibration fail: signature rejection alone
+cannot satisfy those policy controls.
 
 ## Physical evidence reviewed
 
@@ -158,6 +162,33 @@ the Mac interval has SHA-256
 `8004d75fcd546b22580fadcd119b5b3295d8c987e04245e8d566d8182a78a242`.
 This is another observed success under the same fixture, not another network,
 installation history or distribution channel.
+
+### Capture covering the complete driver
+
+The orchestrated 17:12:50–17:14:01 run contains the whole driver, with exit 0 and
+its terminal readback completed. The transcript digest is
+`2a79b9650abfc8947a96a0c16a167e74f34faed2cdc944eeaac8b37404358b51`.
+Its fresh phone identity was generated at 17:12:57; the phone and Mac
+authenticated it at 17:13:14, and the Mac attached its pane at 17:13:56. The
+driver's marker was created at 17:14:00.856. Household snapshots match, with no
+device-pairing request or approval events in the captured engine log.
+
+This capture records `endpoint.persisted class=tailnet` at 17:13:13.996. The
+Mac-local path does persist an endpoint. The old `TAILNET-KEPT` finding instead
+reads `pair.endpoint`, an HTTP ceremony this path does not execute; its initial
+failure does not judge the terminal's network route. Disabling an irrelevant
+ceremony check does not establish Wi-Fi-only or remote connectivity.
+
+The separate reattach attempt stopped during automation of the initial command,
+before the interruption/reconnect. One attach is observable in its Mac log; a
+completed reattach test is not. A stale saved WDA session was observed later,
+but the historical timeout's cause was not established from that observation.
+
+VPN navigation on the dedicated test phone reached the selected Tailscale
+configuration, showing both VPN Connected and Connect On Demand enabled. No
+preference was changed during this navigation. The controls are reachable;
+absence from the first Settings viewport was not a demonstrated restriction.
+The actual disconnected-network run and restoration must still be observed.
 
 Deliberate LAN-only operation, fresh-command reconnect, retained-keychain upgrade
 and TestFlight installation remain **NOT RUN or awaiting evidence**. Do not
