@@ -4,7 +4,7 @@
 release promotion are separate work. This document is not a completed release
 gate, and a successful IPA inspection is not permission to publish.
 
-The two physical Dev runs on 2026-09-07 demonstrated a real phone authenticating
+The initial physical Dev runs on 2026-09-07 demonstrated a real phone authenticating
 to a real Mac and operating its terminal. They did not demonstrate a TestFlight
 installation, an upgrade retaining a customer's keychain, or a deliberately
 configured Wi-Fi-only run. Passing them cannot fill those missing results.
@@ -47,6 +47,10 @@ For each run, retain locally:
 
 1. Candidate identity and actual installed versions on both ends; device model,
    OS, locale and display/text size. Use lab aliases in shareable reports.
+   Equal version strings do not identify builds. Where available, match loaded
+   image UUIDs from device logs to the controlled artifacts. In Dev builds with
+   a debug dylib, the main launcher UUID may be unchanged: identify the code
+   image that actually emitted the relevant event, not just the launcher.
 2. The observed initial state and how it was obtained. Reinstallation is not a
    keychain reset. A debug reset on Dev is a fixture, not an App Store clean
    installation. For upgrades, record old/new builds and stable public identity
@@ -54,6 +58,12 @@ For each run, retain locally:
 3. Start/end times and the ordinary gestures taken, with failure to drive a
    gesture reported separately. Capture the comparison-code screens locally;
    opening a window that failed Accessibility cannot count as an executed step.
+   Prepare and identify the candidate, arm the collectors and observe readiness,
+   then drive. Wait for the driver to finish within a bounded timeout before
+   finalizing the logs, preserving the observed start time. A later
+   `log collect --last 5m` can exclude an
+   earlier action; a file named NEW can contain only the end of the OLD attempt.
+   Match timestamps to the actual action, and report lost events as missing.
 4. Phone and Mac subjects matched across credential issuance, authenticated
    presence and pane attach. A matching pair belonging to another device cannot
    satisfy the run. Keep raw logs local; publish no secrets, codes or terminal
