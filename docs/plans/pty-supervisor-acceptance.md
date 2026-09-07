@@ -58,6 +58,12 @@ As evidências privadas são `f0-bootout-2.json`, `f0-sigkill.json`,
 `f3-absence-run.log`, preservadas na bancada. Identificadores e logs brutos
 não são copiados para este registro.
 
+Na conferência final de encerramento, [blaire] observou o cliente final e o
+engine B ativos, duas sessões com os shells originais e o mesmo supervisor/boot
+de antes da troca A→B. As panes QA permaneceram abertas. Os processos de
+produção conservaram a identidade e o uptime; não houve publicação, PR ou push
+da faixa de bancada. Essa confirmação de estado não é um novo ensaio de falha.
+
 ## Correções orientadas pela bancada
 
 - Resposta legada `version=unknown` com forma explícita e ausência dos campos
