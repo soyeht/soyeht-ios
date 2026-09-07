@@ -46,11 +46,12 @@ THE INVARIANTS
   WORDS-MATCH       the six words the Mac shows are the six the phone shows.
                     Two screens showing six words each prove nothing until they
                     are the SAME six.
-  MAC-LOCAL         a home that already has an owner still hands a new phone a
-                    usable Mac: presence authenticates over the Mac-local secret
-                    the claim delivered, and NO household ceremony is started
-                    for it. The owner's production deadlock of 2026-09-07 was a
-                    phone holding that secret and waiting for an owner instead.
+  MAC-LOCAL         a home that already has an owner still authenticates a new
+                    phone's PRESENCE on the Mac, over the Mac-local secret the
+                    claim delivered, and NO household request is raised for it.
+                    Presence only: opening a pane and attaching have their own
+                    readback. The owner's production deadlock of 2026-09-07 was
+                    a phone holding that secret and waiting for an owner.
 
 CALIBRATION
 
@@ -419,8 +420,16 @@ def inv_first_phone(t: Transcript, household_devices: int | None) -> Finding:
     return Finding("FIRST-PHONE", "pass", "the first iPhone joined with no third party")
 
 
+_DEVICE_ID = re.compile(r"\bdevice=([0-9A-Fa-f-]{36})")
+_MAC_ID = re.compile(r"\bmac_id=([0-9A-Fa-f-]{36})")
+
+
+def _ids(lines: list[str], pattern: re.Pattern[str]) -> set[str]:
+    return {m.group(1).upper() for line in lines for m in [pattern.search(line)] if m}
+
+
 def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
-    """A phone joining a home that already has an owner gets the Mac anyway.
+    """A phone joining a home that already has an owner gets presence anyway.
 
     Two grants travel in the claim. The Mac-local secret opens presence and
     panes on that Mac and is verified by the Mac's own `PresenceSession`; the
@@ -428,13 +437,29 @@ def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
     Mac (2026-09-07) the owner could not act, and the phone — secret in hand —
     sat in `awaiting_approval`. This judges the path that does not: presence
     authenticated, and no household request raised for this phone.
+
+    Presence only. `presence_authenticated` is the HMAC handshake; whether a
+    pane then opens and attaches is a separate readback with its own lines.
+
+    The Dev Mac has other clients, so the three markers are correlated by id
+    rather than grepped globally: the Mac names the phone (`device=`) on both
+    the secret it issued and the presence it authenticated, and the phone
+    names the Mac (`mac_id=`) on both the HMAC it sent and the ack it accepted.
+    Issued for A and authenticated for B is a neighbour's run, not this one.
+    The engine's request line carries only a digest, so a household request
+    is judged inside the capture window and cannot be pinned to a device.
     """
+    if household_devices is None:
+        return Finding("MAC-LOCAL", "n/a",
+                       "the owner count was not read; cannot tell this from "
+                       "the FIRST-PHONE case")
     if household_devices == 0:
         return Finding("MAC-LOCAL", "n/a",
                        "no owner is established; that is the FIRST-PHONE case")
-    issued = t.mac_grep("direct_probe.local_pairing_created")
-    sent = t.phone_grep("presence_hmac_sent")
-    authenticated = t.mac_grep("presence_authenticated")
+    issued = _ids(t.mac_grep("direct_probe.local_pairing_created"), _DEVICE_ID)
+    mac_authenticated = _ids(t.mac_grep("presence_authenticated"), _DEVICE_ID)
+    sent_to = _ids(t.phone_grep("presence_hmac_sent"), _MAC_ID)
+    phone_authenticated = _ids(t.phone_grep("presence_authenticated"), _MAC_ID)
     ceremony = (t.phone_grep("awaiting_approval")
                 or t.engine_grep("device_pairing.request.success"))
     joined = t.engine_grep("pair_device.confirm.success")
@@ -443,28 +468,40 @@ def inv_mac_local(t: Transcript, household_devices: int | None) -> Finding:
         return Finding("MAC-LOCAL", "fail",
                        "this run joined the household; MAC-LOCAL measures the "
                        "path that reaches the Mac without an owner's approval")
-    if ceremony and not authenticated:
+    if ceremony and not (issued & mac_authenticated):
         return Finding("MAC-LOCAL", "fail",
                        "the phone raised a household request and waited on the "
-                       "owner — the deadlock — instead of connecting to the Mac")
+                       "owner — the deadlock — instead of presenting the secret")
     if not issued:
         return Finding("MAC-LOCAL", "n/a",
                        "the Mac never issued a local secret in its claim; there "
                        "is nothing for this path to install")
-    if not sent:
+    if not sent_to:
         return Finding("MAC-LOCAL", "fail",
-                       "the Mac issued a secret and the phone never presented it")
-    if not authenticated:
+                       "the Mac issued a secret and the phone never presented "
+                       "one to any Mac")
+    if not (issued & mac_authenticated):
+        if mac_authenticated:
+            return Finding("MAC-LOCAL", "fail",
+                           "the Mac authenticated a different device than the "
+                           "one it issued the secret to — a neighbour's "
+                           "presence, not this run's")
         return Finding("MAC-LOCAL", "fail",
-                       "the phone presented the secret and the Mac never "
-                       "authenticated the presence session")
+                       "the phone presented a secret and the Mac never "
+                       "authenticated the device it issued one to")
+    if not (sent_to & phone_authenticated):
+        return Finding("MAC-LOCAL", "fail",
+                       "the phone's accepted ack names a different Mac than the "
+                       "one it sent the HMAC to")
     if ceremony:
         return Finding("MAC-LOCAL", "fail",
                        "presence authenticated, but a household request was "
-                       "raised anyway — joining must stay a separate gesture")
+                       "raised in the window — joining must stay a separate "
+                       "gesture")
     return Finding("MAC-LOCAL", "pass",
-                   "presence authenticated over the Mac-local secret, with no "
-                   "household request raised")
+                   "presence authenticated for the device the Mac issued the "
+                   "secret to, no household request raised (presence only; "
+                   "pane open/attach are their own readback)")
 
 
 # The six owner-signing capability states, from [jaime]'s addendum G. The
@@ -849,17 +886,18 @@ BAD_FIRST_PHONE = Transcript(
 )
 
 GOOD_MAC_LOCAL = Transcript(
-    mac=["direct_probe.local_pairing_created device=<id> host=192.168.1.20",
-         "presence_authenticated device=<id>"],
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
     phone=["pair.endpoint source=claim host=192.168.1.20 port=8101",
-           "presence_hmac_sent mac_id=<id>"],
+           "presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001"],
     engine=[],
 )
 
 # The owner's production run: the secret was issued, and the phone raised a
 # household request and waited instead of presenting it.
 BAD_MAC_LOCAL_DEADLOCK = Transcript(
-    mac=["direct_probe.local_pairing_created device=<id> host=192.168.1.20"],
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20"],
     phone=["pair.endpoint source=claim host=192.168.1.20 port=8101",
            "awaiting_approval"],
     engine=["device_pairing.request.success request_digest=abc"],
@@ -868,10 +906,30 @@ BAD_MAC_LOCAL_DEADLOCK = Transcript(
 # Presence came up, but the phone ALSO fired a household request. Reaching the
 # Mac is right; starting the ceremony underneath it is the deadlock's seed.
 BAD_MAC_LOCAL_CEREMONY_ANYWAY = Transcript(
-    mac=["direct_probe.local_pairing_created device=<id> host=192.168.1.20",
-         "presence_authenticated device=<id>"],
-    phone=["presence_hmac_sent mac_id=<id>"],
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
+    phone=["presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001"],
     engine=["device_pairing.request.success request_digest=abc"],
+)
+
+# A neighbour's green: the Dev Mac has other clients. The secret went to phone
+# A; the presence the Mac authenticated in the window belongs to phone B.
+BAD_MAC_LOCAL_NEIGHBOUR = Transcript(
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000B"],
+    phone=["presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000001"],
+    engine=[],
+)
+
+# The phone sent its HMAC to one Mac and accepted an ack from another.
+BAD_MAC_LOCAL_WRONG_MAC = Transcript(
+    mac=["direct_probe.local_pairing_created device=9E2C3A1B-0000-4000-8000-00000000000A host=192.168.1.20",
+         "presence_authenticated device=9E2C3A1B-0000-4000-8000-00000000000A"],
+    phone=["presence_hmac_sent mac_id=5D0F7C2E-0000-4000-8000-000000000001",
+           "presence_authenticated mac_id=5D0F7C2E-0000-4000-8000-000000000002"],
+    engine=[],
 )
 
 BAD_CROSS_PROFILE = Transcript(
@@ -1142,14 +1200,20 @@ def self_test() -> int:
          {"NO-SPINNER": "n/a"}),
         ("bad, crossed profiles", BAD_CROSS_PROFILE, True, 2,
          {"PROFILE-ISOLATED": "fail"}),
-        ("good, owned home hands the phone the Mac", GOOD_MAC_LOCAL, False, 1,
+        ("good, owned home authenticates the phone's presence", GOOD_MAC_LOCAL, False, 1,
          {"MAC-LOCAL": "pass"}),
         ("bad, owned home: phone waits on the owner instead",
          BAD_MAC_LOCAL_DEADLOCK, False, 1, {"MAC-LOCAL": "fail"}),
         ("bad, presence up but a household request raised anyway",
          BAD_MAC_LOCAL_CEREMONY_ANYWAY, False, 1, {"MAC-LOCAL": "fail"}),
+        ("bad, a neighbour's presence under this run's secret",
+         BAD_MAC_LOCAL_NEIGHBOUR, False, 1, {"MAC-LOCAL": "fail"}),
+        ("bad, HMAC to one Mac, ack from another",
+         BAD_MAC_LOCAL_WRONG_MAC, False, 1, {"MAC-LOCAL": "fail"}),
         ("no owner, so MAC-LOCAL does not apply", GOOD_MAC_LOCAL, False, 0,
          {"MAC-LOCAL": "n/a"}),
+        ("owner count unread: MAC-LOCAL cannot borrow the scenario",
+         GOOD_MAC_LOCAL, False, None, {"MAC-LOCAL": "n/a"}),
         ("good, key present but locked", GOOD_CAPABILITY_LOCKED, True, 1,
          {"CAPABILITY-HONEST": "pass"}),
         ("bad, called locked missing", BAD_CAPABILITY_LIES, True, 1,
