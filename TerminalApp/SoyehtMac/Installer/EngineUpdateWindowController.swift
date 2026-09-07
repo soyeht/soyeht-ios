@@ -2,203 +2,154 @@ import AppKit
 import SwiftUI
 import SoyehtCore
 
-/// Tells the person a newer engine is staged, and lets THEM choose when it
-/// takes over.
-///
-/// The engine outlives the app so that sessions survive an app update. An
-/// engine update is the one step that cannot keep that promise: every
-/// brokered PTY is the engine's child, and a restart ends them all. Before
-/// this window, launch bounced a stale engine on its own — measured
-/// 2026-09-03 on the owner's machine, the update to 0.1.45 took eight agent
-/// sessions one second after the app came back, after the whole point of the
-/// broker was that an update never does that.
-///
-/// The rule since then, pinned in `EngineServiceReconciler.staleEngineAction`:
-/// launch may stage the newer engine and may restart it only over nothing.
-/// With sessions alive, the restart is a decision, and decisions that end
-/// someone's work belong to that someone. The window says what is running,
-/// what a restart costs, and what happens if they wait. Never the word
-/// "error" (FR-119): nothing is broken.
+/// Presents the lifecycle outcome, including a resumable uncertain operation.
+/// Closing this window never clears the journal or permits an unsafe CREATE.
 @MainActor
 final class EngineUpdateWindowController: NSWindowController {
     private static var shared: EngineUpdateWindowController?
+    private var completion: (() -> Void)?
+    private var working = false
 
-    /// - Parameters:
-    ///   - runningVersion: what the engine answered from `/bootstrap/status`.
-    ///   - stagedVersion: what this app ships and now sits in Application
-    ///     Support, waiting for the restart.
-    ///   - liveSessionCount: how many sessions the restart would end, or
-    ///     `nil` when the probe could not say — the copy hedges accordingly
-    ///     instead of claiming a number nobody measured.
-    static func present(runningVersion: String, stagedVersion: String, liveSessionCount: Int?) {
-        let model = EngineUpdateReadyModel(
-            runningVersion: runningVersion,
-            stagedVersion: stagedVersion,
-            liveSessionCount: liveSessionCount
-        )
-        if let existing = shared {
-            existing.update(model)
-            existing.showWindow(nil)
-            existing.window?.makeKeyAndOrderFront(nil)
+    static func present(_ outcome: EngineReplacementCoordinator.Outcome, onReady: (() -> Void)? = nil) {
+        if outcome == .readyWithContinuity || outcome == .readyNoReplacement {
+            shared?.close()
+            shared = nil
+            onReady?()
             return
         }
-        let controller = EngineUpdateWindowController(model: model)
+        let controller = shared ?? EngineUpdateWindowController()
         shared = controller
+        if let onReady { controller.completion = onReady }
+        controller.update(outcome)
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
     }
 
-    private init(model: EngineUpdateReadyModel) {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: EngineUpdateReadyView.contentWidth, height: 400),
-            styleMask: [.titled, .closable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
+    private init() {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 320),
+            styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = String(localized: "engineLifecycle.title", defaultValue: "Engine update")
         window.isReleasedWhenClosed = false
-        window.center()
         super.init(window: window)
-        update(model)
+        window.center()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
-    private func update(_ model: EngineUpdateReadyModel) {
-        let dismiss: () -> Void = { [weak self] in
+    private func update(_ outcome: EngineReplacementCoordinator.Outcome) {
+        let view = EngineLifecycleView(outcome: outcome, working: working, onClose: { [weak self] in
             self?.close()
-            EngineUpdateWindowController.shared = nil
-        }
-        let restart: () -> Void = {
-            // The one sanctioned bounce of a live engine, now behind a click
-            // that names its cost. The staged binary is already in place, so
-            // the service comes back as the newer version.
-            SMAppServiceInstaller.restartStaleEngine()
-            dismiss()
-        }
-        let hosting = NSHostingView(
-            rootView: EngineUpdateReadyView(model: model, onRestart: restart, onLater: dismiss)
-        )
+        }, onContinue: { [weak self] in self?.advance(outcome) })
+        let hosting = NSHostingView(rootView: view)
         window?.contentView = hosting
-        // Installing a hosting view resizes the window to that view's fitting
-        // size; ask for it explicitly so the window is exactly the sheet, then
-        // recentre because the size changed under it.
         window?.setContentSize(hosting.fittingSize)
-        window?.center()
     }
-}
 
-struct EngineUpdateReadyModel: Equatable {
-    let runningVersion: String
-    let stagedVersion: String
-    let liveSessionCount: Int?
-}
+    private func advance(_ outcome: EngineReplacementCoordinator.Outcome) {
+        guard !working else { return }
+        switch outcome {
+        case .readyWithContinuity, .readyNoReplacement, .readyAfterSupervisorRestart, .readyAfterLegacyMigration:
+            let callback = completion
+            completion = nil
+            close()
+            Self.shared = nil
+            callback?()
+        case .legacyMigrationRequired(let original, let target):
+            perform(outcome, resume: false, consent: .init(original: original, target: target))
+        case .unconfirmed:
+            perform(outcome, resume: true, consent: nil)
+        }
+    }
 
-/// The message itself: what is running, what a restart costs, what waiting
-/// means. One decision, two buttons, and the safe one is the default.
-struct EngineUpdateReadyView: View {
-    let model: EngineUpdateReadyModel
-    let onRestart: () -> Void
-    let onLater: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(LocalizedStringResource(
-                "engineUpdate.ready.title",
-                defaultValue: "A newer engine is ready",
-                comment: "Shown when the app has staged a newer engine but sessions are running under the current one."
-            ))
-            .font(MacTypography.Fonts.Display.heroTitle)
-            .foregroundColor(BrandColors.textPrimary)
-            .accessibilityAddTraits(.isHeader)
-            Text(message)
-                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                .foregroundColor(BrandColors.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(LocalizedStringResource(
-                "engineUpdate.ready.later",
-                defaultValue: "Nothing changes until you choose. If Soyeht opens with no sessions running, it restarts the engine on its own.",
-                comment: "Explains what happens when the person postpones the engine restart."
-            ))
-            .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-            .foregroundColor(BrandColors.textMuted)
-            .fixedSize(horizontal: false, vertical: true)
-            Color.clear.frame(height: 24)
-            HStack {
-                Spacer()
-                Button(action: onLater) {
-                    Text(LocalizedStringResource(
-                        "engineUpdate.ready.button.later",
-                        defaultValue: "Later",
-                        comment: "Keeps the current engine and its sessions running."
-                    ))
-                }
-                .keyboardShortcut(.defaultAction)
-                Button(role: .destructive, action: onRestart) {
-                    Text(restartButtonTitle)
-                }
+    private func perform(_ current: EngineReplacementCoordinator.Outcome, resume: Bool,
+                         consent: EngineLifecycleService.MigrationConsent?) {
+        working = true
+        update(current)
+        Task { [weak self] in
+            let result = await Task.detached(priority: .userInitiated) {
+                EngineLifecycleService.run(resume: resume, consent: consent)
+            }.value
+            guard let self else { return }
+            self.working = false
+            if result == .readyWithContinuity || result == .readyNoReplacement {
+                self.advance(result)
+            } else {
+                self.update(result)
             }
         }
-        .padding(40)
-        // Fixed width, content-driven height. An unbounded vertical frame
-        // made the hosting view's fitting size unbounded and AppKit sized the
-        // window to it: MEASURED 2026-09-04 on the Dev build, 520 x 4224
-        // points, with both buttons parked thousands of points below the
-        // screen — the person could read the warning and could not answer it.
-        .frame(width: Self.contentWidth, alignment: .topLeading)
+    }
+}
+
+private struct EngineLifecycleView: View {
+    let outcome: EngineReplacementCoordinator.Outcome
+    let working: Bool
+    let onClose: () -> Void
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(LocalizedStringResource("engineLifecycle.title", defaultValue: "Engine update"))
+                .font(.title2).accessibilityAddTraits(.isHeader)
+            Text(message).fixedSize(horizontal: false, vertical: true)
+            if working { ProgressView().controlSize(.small) }
+            HStack {
+                Spacer()
+                Button(action: onClose) {
+                    Text(LocalizedStringResource("engineLifecycle.close", defaultValue: "Close"))
+                }.disabled(working)
+                Button(role: isLegacy ? .destructive : nil, action: onContinue) {
+                    Text(actionLabel)
+                }
+                .accessibilityIdentifier("engine.lifecycle.continue")
+                .disabled(working)
+            }
+        }
+        .padding(28)
+        .frame(width: 520)
     }
 
-    /// Shared with the window controller so the sheet and its window cannot
-    /// disagree about how wide the text is allowed to be.
-    static let contentWidth: CGFloat = 520
+    private var isLegacy: Bool {
+        if case .legacyMigrationRequired = outcome { return true }
+        return false
+    }
 
-    private var message: String {
-        let staged = model.stagedVersion
-        let running = model.runningVersion
-        switch model.liveSessionCount {
-        case .some(1):
-            return String(localized: LocalizedStringResource(
-                "engineUpdate.ready.body.one",
-                defaultValue: "Soyeht staged engine \(staged). The one running now is \(running), and 1 terminal session is running under it. Restarting the engine closes that session — an agent working in it stops.",
-                comment: "Body of the engine-update window when exactly one session would be closed."
-            ))
-        case .some(let count):
-            return String(localized: LocalizedStringResource(
-                "engineUpdate.ready.body.many",
-                defaultValue: "Soyeht staged engine \(staged). The one running now is \(running), and \(count) terminal sessions are running under it. Restarting the engine closes all of them — any agent working in those terminals stops.",
-                comment: "Body of the engine-update window when several sessions would be closed."
-            ))
-        case .none:
-            return String(localized: LocalizedStringResource(
-                "engineUpdate.ready.body.unknown",
-                defaultValue: "Soyeht staged engine \(staged). The one running now is \(running), and terminal sessions may be running under it. Restarting the engine closes every one of them — any agent working in those terminals stops.",
-                comment: "Body of the engine-update window when the number of sessions could not be counted."
-            ))
+    private var actionLabel: LocalizedStringResource {
+        switch outcome {
+        case .legacyMigrationRequired:
+            return LocalizedStringResource("engineLifecycle.migrate", defaultValue: "End sessions and update")
+        case .unconfirmed:
+            return LocalizedStringResource("engineLifecycle.resume", defaultValue: "Resume update")
+        case .readyWithContinuity, .readyNoReplacement, .readyAfterSupervisorRestart, .readyAfterLegacyMigration:
+            return LocalizedStringResource("engineLifecycle.done", defaultValue: "Done")
         }
     }
 
-    private var restartButtonTitle: String {
-        switch model.liveSessionCount {
-        case .some(1):
-            return String(localized: LocalizedStringResource(
-                "engineUpdate.ready.button.restart.one",
-                defaultValue: "Restart now (closes 1 session)",
-                comment: "Restarts the engine, ending the single running session."
-            ))
-        case .some(let count):
-            return String(localized: LocalizedStringResource(
-                "engineUpdate.ready.button.restart.many",
-                defaultValue: "Restart now (closes \(count) sessions)",
-                comment: "Restarts the engine, ending every running session."
-            ))
-        case .none:
-            return String(localized: LocalizedStringResource(
-                "engineUpdate.ready.button.restart.unknown",
-                defaultValue: "Restart now (closes running sessions)",
-                comment: "Restarts the engine when the number of sessions could not be counted."
-            ))
+    private var message: LocalizedStringResource {
+        switch outcome {
+        case .legacyMigrationRequired:
+            return LocalizedStringResource("engineLifecycle.legacy", defaultValue: "This first update ends all terminal sessions hosted by the current engine, including any opened while this window is visible. Save your work first. After this migration, engine updates preserve sessions through a separate terminal service. Closing this window leaves the current engine running.")
+        case .unconfirmed(let reason):
+            switch reason {
+            case .preparationUnavailable:
+                return LocalizedStringResource("engineLifecycle.package", defaultValue: "The update could not verify its files. No new engine was confirmed. Check that this app includes the complete engine package, then resume the update.")
+            case .supervisorIncompatible:
+                return LocalizedStringResource("engineLifecycle.incompatible", defaultValue: "The running terminal service is incompatible with this update. It has been left running to protect its sessions. Install a compatible app update before resuming.")
+            case .originalProcessChanged:
+                return LocalizedStringResource("engineLifecycle.changed", defaultValue: "The engine process changed during the update. The earlier approval does not authorize stopping this process. The update remains pending; resume to check whether the intended engine is ready.")
+            case .journalUnavailable:
+                return LocalizedStringResource("engineLifecycle.journal", defaultValue: "The saved update state could not be read or written safely. New terminal launches remain paused. Resume to recover an interrupted write without forgetting the pending update.")
+            default:
+                return LocalizedStringResource("engineLifecycle.pending", defaultValue: "The engine update has not been confirmed. The engine may be unavailable and new launches are paused. Resume here to check and continue; restarting the app is not required.")
+            }
+        case .readyAfterSupervisorRestart:
+            return LocalizedStringResource("engineLifecycle.restarted", defaultValue: "The engine is ready. The terminal service restarted during the update, so earlier sessions could not be preserved. You can open new terminals.")
+        case .readyAfterLegacyMigration:
+            return LocalizedStringResource("engineLifecycle.migrated", defaultValue: "The migration is complete. Sessions from the old engine ended as approved. New terminals now use the independent terminal service and survive engine updates.")
+        case .readyNoReplacement:
+            return LocalizedStringResource("engineLifecycle.ready", defaultValue: "Ready")
+        case .readyWithContinuity:
+            return LocalizedStringResource("engineLifecycle.preserved", defaultValue: "The engine is ready and the terminal service stayed running.")
         }
     }
 }

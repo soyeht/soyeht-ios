@@ -450,7 +450,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// (the user's shell exited) is an outcome to display, not to undo.
     /// `onConnectionFailed` fires once per failure episode, so at most one
     /// reattach is scheduled per loss; the restore flow carries its own
-    /// bounded retries and NativePTY fallback if the engine stays gone.
+    /// bounded retries and a visible waiting state if the engine stays unavailable.
     private func scheduleEngineReattachAfterTransportLoss(_ error: Error) {
         if let failure = error as? SoyehtAPIClient.LocalTerminalFailure, failure != .unavailable { return }
         if error is LocalTerminalStream.Failure { return }
@@ -940,14 +940,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             // and ends the fragility. A `.native` pane can never be upgraded
             // while it is running; this is the one moment when it can.
             //
-            // Fails open exactly like every other path here: any failure falls
-            // through to `NativePTY` below, so the pane never comes up dead.
-            // A machine with no local engine gets `.failed(transient: false)`
-            // on the first attempt and never waits.
-            if SoyehtFeatureFlags.persistentLocalPanesEnabled,
-               await self.upgradedRestoredPaneToEngine(
-                   conversationID: conversationID, cwd: url, loginPath: loginPath, cols: cols, rows: rows
-               ) {
+            // Choosing the engine is final for this restore attempt. A
+            // transport failure leaves a visible waiting pane, not a shell
+            // with different lifetime and ownership.
+            if SoyehtFeatureFlags.persistentLocalPanesEnabled {
+                _ = await self.upgradedRestoredPaneToEngine(
+                    conversationID: conversationID, cwd: url, loginPath: loginPath, cols: cols, rows: rows
+                )
                 return
             }
 
@@ -1085,12 +1084,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             }
 
             guard self.stillRestorableEngineConversation(conversationID, convStore: convStore) != nil else {
-                // The pane is gone for good (not just this attempt) — no
-                // outcome leaves a session worth keeping: `.attached` just
-                // (re)created one nobody owns anymore, and `.failed` might
-                // be hiding a lost-response success server-side. Always
-                // clean up; deleting an already-gone session is a no-op.
-                await Self.bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)
+                // The attacher and close reaper retain the exact instance or
+                // creation intent. A late restore must not issue an unfenced
+                // DELETE for whichever session now owns the conversation.
                 Self.logger.notice("engine pane restore aborted after attach (pane no longer live) pane=\(conversationID.uuidString, privacy: .public)")
                 return
             }
@@ -1124,42 +1120,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 break
             }
 
-            if convStore.conversation(conversationID)?.commander.requiresEngineSessionPreservation == true {
-                preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription, retryable: true)
-                return
-            }
-            Self.logger.warning("legacy engine pane restore failed pane=\(conversationID.uuidString, privacy: .public); falling back to NativePTY")
-            if let current = convStore.conversation(conversationID) {
-                guard persistDowngradedShellIdentity(for: current, convStore: convStore) else {
-                    PaneStatusTracker.shared.quarantineAgentLaunchOwnership(paneID: conversationID)
-                    terminalView.disconnect()
-                    return
-                }
-            }
-            // Best-effort: a request WE saw as failed (timeout, dropped
-            // response) may have actually succeeded engine-side — don't
-            // leave that orphaned once we fall back to NativePTY.
-            await Self.bestEffortDeleteEngineSession(engineConversationID: initialEngineConversationID)
-            do {
-                let pty = try NativePTY(
-                    shellPath: nil,
-                    cwd: url,
-                    cols: cols,
-                    rows: rows,
-                    loginPath: loginPath,
-                    extraEnvironment: AgentPaneEnvironment.values(
-                        for: convStore.conversation(conversationID) ?? conv
-                    )
-                )
-                convStore.updateCommander(conversationID, commander: .native(pid: pty.pid))
-                self.terminalView.configureLocal(pty: pty)
-                self.markTerminalTransportReadyForDeferredAgentDelivery()
-                Self.logger.info(
-                    "local shell restored (engine fallback) pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
-                )
-            } catch {
-                Self.logger.error("restoreEnginePane NativePTY fallback failed: \(error.localizedDescription, privacy: .public)")
-            }
+            preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
+                                  retryable: true)
         }
     }
 
@@ -1173,7 +1135,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     ///
     /// - Returns: `true` when the broker owns the result, including an
     ///   uncertain CREATE preserved for recovery. Only `.attached` marks the
-    ///   transport ready. `false` permits the legacy NativePTY fallback.
+    ///   transport ready. `false` means the pane disappeared or changed owner;
+    ///   it does not permit a different backend.
     private func upgradedRestoredPaneToEngine(
         conversationID: Conversation.ID,
         cwd: URL,
@@ -1210,7 +1173,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             preserveEngineSession(message: message, retryable: retryable)
             return true
         }
-        guard case .attached(let reconnected) = outcome else { return false }
+        guard case .attached(let reconnected) = outcome else {
+            preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
+                                  retryable: true)
+            return true
+        }
         if reconnected {
             markTerminalDraftUnknownAfterPersistentTransportReattach()
         }
@@ -1246,20 +1213,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             return nil
         }
         return conversation
-    }
-
-    /// Best-effort cleanup for a possibly-orphaned engine session — never
-    /// throws, never blocks the caller on failure. Used when restore
-    /// aborts after a race, or falls back to `NativePTY` after a request
-    /// that may have actually succeeded engine-side despite looking failed
-    /// to us. `engineConversationID` must be the value stored on
-    /// `.engineLocal(conversationID:)`, not re-derived from
-    /// `Conversation.id.uuidString` (see `EngineSessionTTYRegistry`'s
-    /// keying note).
-    private static func bestEffortDeleteEngineSession(engineConversationID: String) async {
-        EngineSessionTTYRegistry.remove(conversationID: engineConversationID)
-        guard let context = await LocalEngineContext.resolve() else { return }
-        try? await SoyehtAPIClient.shared.deleteLocalTerminal(conversationId: engineConversationID, context: context)
     }
 
     // MARK: - Header wiring

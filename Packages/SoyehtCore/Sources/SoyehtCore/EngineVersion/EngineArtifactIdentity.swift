@@ -48,6 +48,7 @@ public struct PTYSupervisorStatus: Decodable, Equatable, Sendable {
 }
 
 public struct EngineRuntimeIdentity: Decodable, Sendable {
+    public let version: String?
     public let artifact: EngineArtifactIdentity?
     public let terminalBackend: String?
     public let terminalSupervisorBootID: UUID?
@@ -55,11 +56,23 @@ public struct EngineRuntimeIdentity: Decodable, Sendable {
     public let processBootID: String?
 
     enum CodingKeys: String, CodingKey {
+        case version
         case artifact
         case terminalBackend = "terminal_backend"
         case terminalSupervisorBootID = "terminal_supervisor_boot_id"
         case processID = "process_id"
         case processBootID = "process_boot_id"
+    }
+
+    /// A successful legacy version response is distinct from an unavailable
+    /// response. It describes an API generation, not a process identity.
+    public var isLegacyResponse: Bool {
+        if terminalBackend == "legacy" { return true }
+        guard artifact == nil, terminalBackend == nil, processID == nil,
+              processBootID == nil, terminalSupervisorBootID == nil,
+              let version else { return false }
+        let components = version.split(separator: ".", omittingEmptySubsequences: false)
+        return components.count == 3 && components.allSatisfy { UInt($0) != nil }
     }
 
     public enum ReplacementOutcome: Equatable, Sendable {
@@ -79,14 +92,22 @@ public struct EngineRuntimeIdentity: Decodable, Sendable {
         priorBrokerBootID: UUID,
         supervisor: PTYSupervisorStatus
     ) -> ReplacementOutcome {
+        guard matchesSupervisedInstallation(expected: expected, supervisor: supervisor) else { return .unconfirmed }
+        return supervisor.brokerBootID == priorBrokerBootID ? .readyWithContinuity : .readyAfterSupervisorRestart
+    }
+
+    /// Current readiness only. Without an earlier observation this says
+    /// nothing about session continuity across an interval.
+    public func matchesSupervisedInstallation(expected: EngineArtifactIdentity, supervisor: PTYSupervisorStatus) -> Bool {
         guard let artifact,
               expected.compareImage(to: artifact) == .sameImage,
               terminalBackend == "supervisor",
               terminalSupervisorBootID == supervisor.brokerBootID,
               artifact.ptySupervisorProtocol == expected.ptySupervisorProtocol,
-              supervisor.protocolVersion == expected.ptySupervisorProtocol else { return .unconfirmed }
-        return supervisor.brokerBootID == priorBrokerBootID ? .readyWithContinuity : .readyAfterSupervisorRestart
+              supervisor.protocolVersion == expected.ptySupervisorProtocol else { return false }
+        return true
     }
+
 }
 
 extension SoyehtAPIClient {

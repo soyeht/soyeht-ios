@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copies theyos engine support binaries into Soyeht.app/Contents/Helpers/
-# and the SMAppService LaunchAgent plist into Soyeht.app/Contents/Library/LaunchAgents/.
+# and the engine LaunchAgent plists into Soyeht.app/Contents/Library/LaunchAgents/.
 # Release builds fail if any required helper is missing.
 #
 # Lookup order for the binary:
@@ -22,8 +22,8 @@ LAUNCH_AGENTS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Library/LaunchAgents"
 LAUNCH_AGENT_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist"
 LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
 # Developer-build LaunchAgent (com.soyeht.engine.dev). Both plists are embedded
-# in every build; SMAppService registers only the one matching the running
-# bundle id (see SMAppServiceInstaller / SoyehtInstallProfile), so the dev and
+# in every build; EngineLifecycleService prepares and loads only the one matching
+# the running bundle id (SoyehtInstallProfile), so the dev and
 # shipping engines never share a launchd job or any on-disk state.
 LAUNCH_AGENT_DEV_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.dev.plist"
 LAUNCH_AGENT_DEV_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.dev.plist"

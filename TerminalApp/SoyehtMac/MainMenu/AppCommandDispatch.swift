@@ -285,6 +285,7 @@ extension AppCommand {
 extension MainMenuExplicitRole {
     func validation(in context: CommandUIContext) -> CommandUIValidation {
         switch self {
+        case .resumeEngineUpdate: return .enabled()
         case .closeWorkspace:
             return CommandUIValidation(isEnabled: (context.frontmostWindow?.workspaceCount ?? 0) > 1)
         case .logout:

@@ -15,6 +15,12 @@
           "title" : "Check for Updates…"
         },
         {
+          "action" : "resumeEngineUpdate:",
+          "kind" : "item",
+          "targetPolicy" : "explicitTarget",
+          "title" : "Resume update"
+        },
+        {
           "kind" : "separator"
         },
         {

@@ -2,6 +2,18 @@ import Testing
 @testable import SwiftTerm
 
 final class ParserTests {
+    @Test func streamGapAbandonsPartialControlSequencesAndUTF8() {
+        for prefix in [[UInt8]("\u{1b}]0;partial".utf8), [UInt8]("\u{1b}P1;2".utf8),
+                       [UInt8]("\u{1b}[38;2;".utf8), [0xf0, 0x9f]] {
+            let (terminal, delegate) = TerminalTestHarness.makeTerminal(cols: 40, rows: 3)
+            terminal.feed(buffer: prefix[...])
+            terminal.resetAfterStreamGap()
+            terminal.feed(text: "GAP-RECOVERED")
+            TerminalTestHarness.assertLineText(terminal.buffer, terminal: terminal, row: 0, equals: "GAP-RECOVERED")
+            #expect(delegate.sentData.isEmpty)
+        }
+    }
+
     private let esc = "\u{1b}"
 
     @Test func testSgrMixedColonSemicolonWithBlank() {

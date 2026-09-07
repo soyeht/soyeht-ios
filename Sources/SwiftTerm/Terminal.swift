@@ -5103,6 +5103,16 @@ open class Terminal {
         return buffer.yDisp
     }
     
+    /// A retained-output gap may bisect UTF-8, OSC, DCS or an escape sequence.
+    /// Abandon that partial parser state before accepting the retained suffix.
+    /// Screen contents and modes can no longer be reconstructed across the gap.
+    public func resetAfterStreamGap ()
+    {
+        parser.reset ()
+        readingBuffer.reset ()
+        resetToInitialState ()
+    }
+
     // ESC c Full Reset (RIS)
     /// This performs a full reset of the terminal, like a soft reset, but additionally resets the buffer conents and scroll area.
     /// for a soft reset see `softReset`

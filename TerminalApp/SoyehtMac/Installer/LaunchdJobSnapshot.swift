@@ -2,7 +2,7 @@ import Foundation
 
 /// Only top-level fields of one explicitly requested launchd job. Unknown or
 /// incomplete output is not a snapshot and must not prove service absence.
-struct LaunchdJobSnapshot: Equatable {
+struct LaunchdJobSnapshot: Codable, Equatable, Sendable {
     let path: String?
     let program: String
     let arguments: [String]

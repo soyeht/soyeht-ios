@@ -4076,9 +4076,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // disk cache.
         let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
 
-        // The flag chooses the backend for a new pane only. A recorded
-        // supervisor instance or CREATE intent retains that owner even if
-        // the flag changes or the engine becomes unavailable.
+        // An explicit native setting chooses that backend before attachment.
+        // Once the engine path is selected, connection failure cannot silently
+        // substitute a NativePTY. Recorded ownership always wins over the flag.
         let attachedViaEngine: Bool
         if SoyehtFeatureFlags.persistentLocalPanesEnabled || conversation?.commander.requiresEngineSessionPreservation == true,
            let conversation {
@@ -4332,8 +4332,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// Attempts to spawn/reattach the pane's shell via this Mac's own
     /// embedded engine (`POST /api/v1/terminals/local`) and wire the
     /// terminal view to it over WebSocket, exactly like a remote `.mirror`
-    /// pane. Returns false only before execution was submitted and with no
-    /// recorded supervised owner. Uncertain execution preserves the pane.
+    /// pane. Once this path is selected, an unavailable engine preserves a
+    /// waiting pane. It never returns permission to substitute a NativePTY.
     private func attachEnginePane(
         paneID: Conversation.ID,
         conversation: Conversation,
@@ -4376,8 +4376,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             )
             // A transient failure on a daemon that is still finishing its own
             // boot is the common first-run case: the engine answers a moment
-            // later. Only a definitive refusal falls straight through to
-            // NativePTY.
+            // later. Exhaustion preserves the pane and surfaces the outcome;
+            // it never selects another execution backend.
             guard case .failed(transient: true) = firstOutcome,
                   attempt < Self.firstAttachRetryDelaysNanoseconds.count else {
                 break
@@ -4442,12 +4442,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             case .attached(reconnected: true):
                 pane.terminalView.disconnect()
                 throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
-            case .failed:
-                return false
+            case .failed(let transient):
+                pane.preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
+                                           retryable: transient)
+                throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
             }
-        case .failed:
-            Self.logger.warning("persistent local pane: engine attach failed; falling back to NativePTY")
-            return false
+        case .failed(let transient):
+            pane.preserveEngineSession(message: SoyehtAPIClient.LocalTerminalFailure.unavailable.localizedDescription,
+                                       retryable: transient)
+            throw LocalAgentWorkspaceError.persistentAgentSessionFreshLaunchUnavailable
         }
     }
 

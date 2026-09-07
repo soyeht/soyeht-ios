@@ -12,7 +12,7 @@ enum EnginePaneAttacher {
 
     enum AttachOutcome: Equatable {
         /// No execution was submitted and no supervised ownership is known.
-        /// Only this outcome permits the caller's legacy NativePTY fallback.
+        /// The caller may retry, but must not select another backend silently.
         case failed(transient: Bool)
         /// A supervised session or uncertain CREATE already belongs to this
         /// pane. Preserve that ownership; never substitute a NativePTY.

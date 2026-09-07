@@ -186,14 +186,35 @@ compatibilidade, não integridade. Um supervisor vivo de outra imagem compatíve
 é deliberadamente preservado: reiniciá-lo para igualar a imagem do pacote
 mataria as sessões que esta arquitetura existe para proteger.
 
-Estado desta fatia: gate do recibo e build de compilação do Mac passaram;
-o instalador independente do supervisor tem testes de operações injetadas.
-`EngineLifecycleService` conecta preparação, supervisor e coordenador, mas os
-entrypoints do instalador/UI ainda não o chamam. Ele recusa engine legado sem
-identidade verificável; a primeira migração com consentimento continua separada
-e pendente. A consulta HTTP é limitada ao loopback do perfil e recusa redirects.
-O pacote
-publicado 0.1.30 não contém supervisor nem recibo e é recusado deliberadamente.
-Não integrar o requisito ao main sem o pacote correspondente e o pin juntos.
-Os workflows ausentes e os pins de integridade Phase0 desatualizados no produtor
-continuam impedindo alegar validação integral de release; não foram contornados.
+Estado da integração: os entrypoints de instalação, abertura e retomada chamam
+`EngineLifecycleService`. O menu oferece retomada sem relançar o app. A primeira
+migração exige aprovação vinculada ao processo legado observado pelo kernel e
+ao artefato de destino; contagem zero não concede essa aprovação. Se o processo
+legado mudar antes da remoção, a retomada pede nova aprovação para a mesma
+operação e destino. A revisão de consentimento é persistida sem apagar a
+incerteza nem liberar CREATE; um staging interrompido recupera a revisão nova.
+Depois de observar ausência e iniciar a carga, a operação não volta à remoção.
+
+Uma instalação já correta retorna `readyNoReplacement`: confirma somente o
+estado atual, sem inventar um intervalo de continuidade. Só o coordenador compara
+o boot anterior do journal ao boot observado. Engine ausente pode ter PTYs vivos
+no supervisor, portanto o boot anterior também é capturado nesse caminho.
+
+Falha de restauração conserva a pane e não cria NativePTY. O cursor só avança
+após consumo pelo parser; um GAP reinicia o parser antes da mensagem localizada,
+pois retenção pode cortar uma sequência de controle no meio. A primeira instalação
+e a reposição dos helpers usam rename atômico, que preserva imagens abertas e
+aceita destino ainda ausente.
+
+Os testes de domínio, a compilação do app e o gate cruzado passaram nesta
+integração. A sonda Python agora mede shell, job longo e TUI separados, com
+escritores liberados apenas durante ausência observada por processo e porta,
+e espera todas as sentinelas DONE antes de recarregar. Seus controles isolados
+não substituem as corridas do Dev instalado. Essas corridas continuam pendentes
+até entrega do bundle assinado ao responsável pela faixa Dev.
+
+O pacote publicado 0.1.30 não contém supervisor nem recibo e é recusado
+deliberadamente. Não integrar o requisito ao main sem o pacote correspondente e
+o pin juntos. Os workflows ausentes e os pins de integridade Phase0 desatualizados
+no produtor continuam impedindo alegar validação integral de release; não foram
+contornados.

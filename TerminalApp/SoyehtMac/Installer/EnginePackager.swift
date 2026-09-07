@@ -2,11 +2,8 @@ import CryptoKit
 import Foundation
 import SoyehtCore
 
-/// Installs the engine binary and bootstrap credential into Application Support,
-/// and keeps everything up to date on subsequent launches.
-///
-/// Call order (before SMAppServiceInstaller.register()):
-///   try EnginePackager.install()
+/// Validates and stages package bytes under the lifecycle journal lock.
+/// EngineLifecycleService owns preparation order and all activation decisions.
 enum EnginePackager {
 
     // MARK: - Paths
@@ -39,21 +36,6 @@ enum EnginePackager {
         soyehtSupportDirectory.appendingPathComponent("logs", isDirectory: true)
 
     // MARK: - Public API
-
-    /// Installs the engine binaries and bootstrap credential.
-    ///
-    /// This stages files only. The lifecycle coordinator separately writes
-    /// and loads the profile's Background LaunchAgent after its preconditions
-    /// are verified. Copying files says nothing about the running executable.
-    ///
-    /// - Throws: `EnginePackagerError` describing the failure.
-    static func install() throws {
-        _ = try validatedBundledArtifact()
-        try FileManager.default.createDirectory(at: soyehtSupportDirectory, withIntermediateDirectories: true)
-        let journal = try EngineReplacementJournal(directory: EngineReplacementJournal.directory(in: soyehtSupportDirectory),
-                                                     profile: SoyehtInstallProfile.current.kind)
-        try stage(holding: journal)
-    }
 
     /// The production lifecycle adapter uses its already-held exclusive
     /// journal. A pending target is immutable even if a newer app has arrived.
@@ -149,17 +131,7 @@ enum EnginePackager {
 
     private static func installBinary(named binaryName: String, sourceURL: URL, destinationURL: URL) throws {
         guard !isUpToDate(source: sourceURL, destination: destinationURL) else { return }
-        let tempURL = engineDestinationDirectory
-            .appendingPathComponent(".\(binaryName).tmp-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: tempURL) }
-
-        try FileManager.default.copyItem(at: sourceURL, to: tempURL)
-
-        var attrs = try FileManager.default.attributesOfItem(atPath: tempURL.path)
-        attrs[.posixPermissions] = NSNumber(value: 0o755 as Int16)
-        try FileManager.default.setAttributes(attrs, ofItemAtPath: tempURL.path)
-
-        _ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: tempURL)
+        try EngineBinaryStaging.stage(source: sourceURL, destination: destinationURL)
     }
 
     private static func setPrivateFilePermissions(_ url: URL) throws {

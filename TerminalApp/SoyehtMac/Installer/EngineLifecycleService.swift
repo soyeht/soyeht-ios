@@ -4,12 +4,17 @@ import Foundation
 import SoyehtCore
 
 /// Production adapter for a bounded replacement round. Run on a worker, never
-/// on the main thread. This path only replaces engines with verified runtime
-/// identities; first migration from a legacy engine is a separate consent flow.
+/// on the main thread. Legacy removal requires explicit consent bound to the
+/// observed process and target. Subsequent replacements preserve the PTY owner.
 enum EngineLifecycleService {
     typealias Coordinator = EngineReplacementCoordinator
 
-    static func run(resume: Bool) -> Coordinator.Outcome {
+    struct MigrationConsent: Sendable {
+        let original: LegacyEngineObservation
+        let target: EngineArtifactIdentity
+    }
+
+    static func run(resume: Bool, consent: MigrationConsent? = nil) -> Coordinator.Outcome {
         let profile = SoyehtInstallProfile.current
         let support = EnginePackager.soyehtSupportDirectory
         let installation = PTYSupervisorInstallation(profile: profile, home: FileManager.default.homeDirectoryForCurrentUser)
@@ -28,18 +33,31 @@ enum EngineLifecycleService {
             let journal = try EngineReplacementJournal(directory: EngineReplacementJournal.directory(in: support), profile: profile.kind)
             if resume { try journal.recoverInterruptedWrite() }
             if try journal.read() == nil {
-                guard !resume else { return .unconfirmed(.journalUnavailable) }
                 let artifact = try EnginePackager.validatedBundledArtifact()
                 let before = probe.observe()
                 let priorPID: UInt32?
                 let priorBoot: String?
                 let priorBroker: UUID?
+                var authorizedLegacy: LegacyEngineObservation?
                 switch before.engine {
                 case .absent:
                     priorPID = nil
                     priorBoot = nil
+                    if case .verified(let owner) = before.supervisor { priorBroker = owner.brokerBootID }
+                    else { priorBroker = nil }
+                case .legacy(let legacy):
+                    guard consent?.original == legacy, consent?.target == artifact else {
+                        return .legacyMigrationRequired(legacy, artifact)
+                    }
+                    priorPID = nil
+                    priorBoot = nil
                     priorBroker = nil
-                case .present(let runtime, _):
+                    authorizedLegacy = legacy
+                case .present(let runtime, let targetMatches):
+                    if targetMatches, case .verified(let owner) = before.supervisor,
+                       runtime.matchesSupervisedInstallation(expected: artifact, supervisor: owner) {
+                        return .readyNoReplacement
+                    }
                     // Counting zero legacy PTYs cannot close that engine's
                     // remote CREATE admission. Do not infer migration consent.
                     guard runtime.terminalBackend == "supervisor",
@@ -74,14 +92,24 @@ enum EngineLifecycleService {
                 case .unconfirmed: return .unconfirmed(.observationUnavailable)
                 }
                 let plist = try preparedPlist(profile: profile, supervisor: installation)
-                let record = EngineReplacementJournal.Record(formatVersion: 1, operationID: UUID(), profileKind: profile.kind.rawValue,
+                let record = EngineReplacementJournal.Record(formatVersion: 2, operationID: UUID(), profileKind: profile.kind.rawValue,
                     expectedArtifact: artifact, plistDigest: digest(plist), priorEnginePID: priorPID,
-                    priorEngineBootID: priorBoot, priorBrokerBootID: priorBroker ?? owner.brokerBootID, phase: .prepared)
+                    priorEngineBootID: priorBoot, priorBrokerBootID: priorBroker ?? owner.brokerBootID, phase: .prepared,
+                    authorizedLegacyRemoval: authorizedLegacy)
                 // Finish preparation before committing its digest. No engine
                 // removal/load is allowed until the journal save succeeds.
                 try FileManager.default.createDirectory(at: enginePlist.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try plist.write(to: enginePlist, options: .atomic)
                 try journal.save(record)
+            }
+
+            if let pending = try journal.read(), pending.authorizedLegacyRemoval != nil,
+               pending.phase == .prepared || pending.phase == .removalUncertain,
+               case .legacy(let current) = probe.observeEngine(), current != pending.authorizedLegacyRemoval {
+                guard consent?.original == current, consent?.target == pending.expectedArtifact else {
+                    return .legacyMigrationRequired(current, pending.expectedArtifact)
+                }
+                try journal.renewLegacyConsent(expected: pending, observed: current)
             }
 
             let coordinator = Coordinator(journal: journal, operations: .init(
@@ -97,8 +125,16 @@ enum EngineLifecycleService {
                     }
                 },
                 observe: { probe.observe() },
-                validateRemoval: { record, runtime in
-                    guard runtime.terminalBackend == "supervisor",
+                validateRemoval: { record, observed in
+                    if case .legacy(let legacy) = observed {
+                        guard record.authorizedLegacyRemoval == legacy,
+                              case .legacy(let current) = probe.observeEngine(), current == legacy else {
+                            throw PreparationFailure.unverifiedOwner
+                        }
+                        return
+                    }
+                    guard case .present(let runtime, _) = observed,
+                          runtime.terminalBackend == "supervisor",
                           runtime.processID == record.priorEnginePID,
                           runtime.processBootID == record.priorEngineBootID,
                           case let .verified(owner) = probe.observeSupervisor(),
@@ -107,13 +143,11 @@ enum EngineLifecycleService {
                         throw PreparationFailure.unverifiedOwner
                     }
                 },
-                removeEngine: {
-                    // This adapter accepts only the engine label. No path
-                    // can forward the independent supervisor label here.
-                    for domain in ["gui", "user"] {
-                        _ = try? runner(URL(fileURLWithPath: "/bin/launchctl"),
-                            ["bootout", "\(domain)/\(getuid())/\(profile.engineLaunchdLabel)"], 5)
-                    }
+                removeEngine: { observed in
+                    // Another domain or incarnation is never removed.
+                    guard let domain = probe.removalDomain(for: observed) else { return }
+                    _ = try? runner(URL(fileURLWithPath: "/bin/launchctl"),
+                        ["bootout", "\(domain)/\(getuid())/\(profile.engineLaunchdLabel)"], 5)
                 },
                 loadPreparedEngine: {
                     _ = try? runner(URL(fileURLWithPath: "/bin/launchctl"), ["load", "-S", "Background", enginePlist.path], 5)

@@ -39,7 +39,7 @@ final class EngineReplacementCoordinatorTests: XCTestCase {
                 XCTAssertTrue(self.barrierHeld)
                 self.events.append("validateRemoval")
                 if self.removalFails { throw Fault.injected }
-            }, removeEngine: {
+            }, removeEngine: { _ in
                 XCTAssertTrue(self.barrierHeld)
                 XCTAssertEqual(try? self.journal.read()?.phase, .removalUncertain)
                 self.events.append("removeEngine")
@@ -83,6 +83,106 @@ final class EngineReplacementCoordinatorTests: XCTestCase {
          "process_id":\(old ? 123 : 124),"process_boot_id":"\(String(repeating: old ? "b" : "c", count: 32))"}
         """)
         return .init(engine: .present(runtime, targetConfigurationMatches: true), supervisor: .verified(supervisor))
+    }
+
+    private func legacy(pid: UInt32 = 123, start: UInt64 = 100) -> LegacyEngineObservation {
+        let job = LaunchdJobSnapshot(output: """
+        user/123/com.soyeht.engine.dev = {
+            program = /bin/zsh
+            arguments = {
+                /bin/zsh
+                -lc
+                exec "/fixture/Library/Application Support/SoyehtDev/engine/theyos-engine"
+            }
+            pid = \(pid)
+        }
+        """, domain: "user", label: "com.soyeht.engine.dev", uid: 123)!
+        return .init(process: .init(pid: pid, startSeconds: start, startMicroseconds: 1), domain: "user", job: job)
+    }
+
+    func testLegacyConsentSurvivesResumeButCannotAuthorizeAnotherIncarnation() throws {
+        for changed in [false, true] {
+            try fixture { journal, template, harness in
+                let approved = legacy()
+                var record = Journal.Record(formatVersion: 2, operationID: template.operationID, profileKind: "dev",
+                    expectedArtifact: template.expectedArtifact, plistDigest: template.plistDigest,
+                    priorEnginePID: nil, priorEngineBootID: nil, priorBrokerBootID: template.priorBrokerBootID,
+                    phase: .prepared, authorizedLegacyRemoval: approved)
+                try journal.save(record)
+                record.phase = .removalUncertain
+                try journal.save(record)
+                let owner = try observation().supervisor
+                harness.observations = [.init(engine: .legacy(legacy(start: changed ? 101 : 100)), supervisor: owner),
+                                        try observation(absent: true), try observation()]
+                let result = Coordinator(journal: journal, operations: harness.operations).run()
+                XCTAssertEqual(result, changed ? .unconfirmed(.originalProcessChanged) : .readyAfterLegacyMigration)
+                XCTAssertEqual(harness.events.contains("removeEngine"), !changed)
+                XCTAssertEqual(harness.events.contains("loadEngine"), !changed)
+            }
+        }
+    }
+
+    func testLegacyObservationWithoutMatchingConsentNeverRemoves() throws {
+        try fixture { journal, record, harness in
+            harness.observations = [.init(engine: .legacy(legacy()), supervisor: try observation().supervisor)]
+            XCTAssertEqual(Coordinator(journal: journal, operations: harness.operations).run(proposal: record),
+                           .unconfirmed(.originalProcessChanged))
+            XCTAssertFalse(harness.events.contains("removeEngine"))
+            XCTAssertFalse(harness.events.contains("loadEngine"))
+        }
+    }
+
+    func testRenewedLegacyConsentPreservesPendingOperationAndAuthorizesOnlyTheNewProcess() throws {
+        try fixture { journal, template, harness in
+            var record = Journal.Record(formatVersion: 2, operationID: template.operationID, profileKind: "dev",
+                expectedArtifact: template.expectedArtifact, plistDigest: template.plistDigest,
+                priorEnginePID: nil, priorEngineBootID: nil, priorBrokerBootID: template.priorBrokerBootID,
+                phase: .prepared, authorizedLegacyRemoval: legacy())
+            try journal.save(record)
+            record.phase = .removalUncertain
+            try journal.save(record)
+            let successor = legacy(start: 101)
+            var unauthorized = record
+            unauthorized.authorizedLegacyRemoval = successor
+            XCTAssertThrowsError(try journal.save(unauthorized))
+            XCTAssertEqual(try journal.read(), record)
+            try journal.renewLegacyConsent(expected: record, observed: successor)
+            let renewed = try XCTUnwrap(journal.read())
+            XCTAssertEqual(renewed.operationID, record.operationID)
+            XCTAssertEqual(renewed.phase, .removalUncertain)
+            XCTAssertEqual(renewed.expectedArtifact, record.expectedArtifact)
+            XCTAssertEqual(renewed.legacyConsentRevision, 1)
+            XCTAssertThrowsError(try journal.renewLegacyConsent(expected: record, observed: legacy(start: 102)))
+            harness.observations = [.init(engine: .legacy(successor), supervisor: try observation().supervisor),
+                                    try observation(absent: true), try observation()]
+            XCTAssertEqual(Coordinator(journal: journal, operations: harness.operations).run(), .readyAfterLegacyMigration)
+            XCTAssertEqual(harness.events.filter { $0 == "removeEngine" }.count, 1)
+            XCTAssertNil(try journal.read())
+        }
+    }
+
+    func testInterruptedConsentRenewalRecoversWithoutRevertingToTheEarlierProcess() throws {
+        var interrupt = false
+        try fixture(checkpoint: { step in
+            if interrupt && step == .recordSynced { throw NSError(domain: "fixture", code: 1) }
+        }) { journal, template, _ in
+            let record = Journal.Record(formatVersion: 2, operationID: template.operationID, profileKind: "dev",
+                expectedArtifact: template.expectedArtifact, plistDigest: template.plistDigest,
+                priorEnginePID: nil, priorEngineBootID: nil, priorBrokerBootID: template.priorBrokerBootID,
+                phase: .prepared, authorizedLegacyRemoval: legacy())
+            try journal.save(record)
+            interrupt = true
+            XCTAssertThrowsError(try journal.renewLegacyConsent(expected: record, observed: legacy(start: 101)))
+            XCTAssertThrowsError(try journal.read())
+            interrupt = false
+            try journal.recoverInterruptedWrite()
+            var renewed = try XCTUnwrap(journal.read())
+            XCTAssertEqual(renewed.authorizedLegacyRemoval, legacy(start: 101))
+            renewed.phase = .awaitingLoad
+            try journal.save(renewed)
+            XCTAssertThrowsError(try journal.renewLegacyConsent(expected: renewed, observed: legacy(start: 102)))
+            XCTAssertEqual(try journal.read(), renewed)
+        }
     }
 
     func testReplacementPersistsBeforeCommandsAndConfirmsActualNewProcess() throws {

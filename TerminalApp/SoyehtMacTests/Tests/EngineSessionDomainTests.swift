@@ -113,49 +113,8 @@ final class EngineSessionDomainTests: XCTestCase {
     // registration are exercised by EngineLabelReleaseTests through the live
     // replacement function with an injected service boundary.
 
-    /// A launch that finds the job already home must not reload it: a reload
-    /// restarts the engine, which is the cost the whole migration is timed to
-    /// avoid.
-    func testAnAlreadyMigratedLaunchRefreshesThePlistWithoutRestarting() throws {
-        let source = try macSource("Installer/SMAppServiceInstaller.swift")
-        let quiet = try slice(
-            source,
-            from: "case .nothingToDo:",
-            to: "case .waitForAQuietMoment"
-        )
-        XCTAssertTrue(quiet.contains("write(to: destination, options: .atomic)"))
-        XCTAssertFalse(quiet.contains("EngineBackgroundAgent.install("), "a reload here would take the panes")
-        XCTAssertFalse(quiet.contains("restart("), "a reload here would take the panes")
-    }
-
-    /// The migration writes launchd state, so the same rule that governs the
-    /// rest of launch has to hold here: nothing is written outside the branch
-    /// that measured the cost. `.nothingToDo` and `.waitForAQuietMoment` may
-    /// log and nothing else.
-    func testOnlyTheMeasuredBranchWritesLaunchdState() throws {
-        let source = try macSource("Installer/SMAppServiceInstaller.swift")
-        let migration = try slice(
-            source,
-            from: "private static func migrateOutOfTheGraphicalSessionIfQuiet",
-            to: "\n    }\n"
-        )
-        // The count is consulted before any branch is taken.
-        let decision = try XCTUnwrap(migration.range(of: "sessionDomainAction("))
-        let firstInstall = migration.range(of: "EngineBackgroundAgent.install(")
-        XCTAssertTrue(
-            firstInstall == nil || decision.lowerBound < firstInstall!.lowerBound,
-            "the session count must be read before anything is installed"
-        )
-        let waiting = try slice(migration, from: "case .waitForAQuietMoment", to: "case .migrateNow")
-        for line in waiting.split(separator: "\n").dropFirst() {
-            let code = line.trimmingCharacters(in: .whitespaces)
-            guard !code.isEmpty, !code.hasPrefix("//") else { continue }
-            XCTAssertTrue(
-                code.hasPrefix("reconcileLog.") || code == "}",
-                "waiting may only log; found '\(code.prefix(60))'"
-            )
-        }
-    }
+    // EngineReplacementCoordinatorTests exercises migration authorization,
+    // no-load-on-unknown, readback, and resumption through injected commands.
 
     /// Uninstall has to clear both homes, or "start from scratch" leaves a
     /// job behind that comes back at the next login.

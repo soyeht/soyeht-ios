@@ -28,6 +28,41 @@ final class EngineInstallationProbeTests: XCTestCase {
               expectedEngineProgram: "/bin/zsh", uid: 123, run: run, readRuntime: { nil })
     }
 
+    func testLegacyRequiresSuccessfulResponseStableKernelIdentityAndProfileOwnership() throws {
+        for fault in ["none", "http", "emptyJSON", "pidReuse", "otherProfile"] {
+            let runtime: EngineRuntimeIdentity? = fault == "http" ? nil : try JSONDecoder().decode(
+                EngineRuntimeIdentity.self, from: Data((fault == "emptyJSON" ? "{}" : #"{"version":"0.1.30"}"#).utf8))
+            var reads = 0
+            let owner = fault == "otherProfile" ? "Soyeht" : "SoyehtDev"
+            let observer = EngineInstallationProbe(supervisor: spec,
+                enginePlist: URL(fileURLWithPath: "/tmp/fixture-engine.plist"), expectedEngineProgram: "/bin/zsh", uid: 123,
+                run: { _, args, _ in
+                    if args[1].hasPrefix("gui/") {
+                        return self.result("Could not find service \"\(self.spec.profile.engineLaunchdLabel)\" in domain for uid: 123", status: 113)
+                    }
+                    return self.result("""
+                    user/123/\(self.spec.profile.engineLaunchdLabel) = {
+                        program = /bin/zsh
+                        arguments = {
+                            /bin/zsh
+                            -lc
+                            exec "/fixture/Library/Application Support/\(owner)/engine/theyos-engine"
+                        }
+                        pid = 123
+                    }
+                    """)
+                }, readRuntime: { runtime }, readProcess: { pid, _ in
+                    reads += 1
+                    return .init(pid: pid, startSeconds: fault == "pidReuse" && reads > 1 ? 101 : 100, startMicroseconds: 1)
+                })
+            switch observer.observeEngine() {
+            case .legacy: XCTAssertEqual(fault, "none")
+            case .unknown: XCTAssertNotEqual(fault, "none")
+            default: XCTFail("Legacy/unknown must remain separate from supervised identity")
+            }
+        }
+    }
+
     func testSupervisorMustKeepItsKernelPIDAndBootAcrossJobObservation() {
         for mutation in ["none", "pid", "boot", "jobPID"] {
             var statusCalls = 0
@@ -74,7 +109,7 @@ final class EngineInstallationProbeTests: XCTestCase {
             switch observer.observe().engine {
             case .absent: XCTAssertEqual(commandStatus, 113)
             case .unknown: XCTAssertEqual(commandStatus, 114)
-            case .present: XCTFail("No runtime answered")
+            case .present, .legacy: XCTFail("No runtime answered")
             }
         }
     }

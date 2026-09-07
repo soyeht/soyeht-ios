@@ -11,7 +11,7 @@ final class EngineReplacementJournal {
         case storageUnavailable(Int32)
     }
 
-    enum Phase: String, Codable {
+    enum Phase: String, Codable, Sendable {
         case prepared
         /// Persisted before invoking bootout; a crash can precede the command.
         case removalUncertain
@@ -21,7 +21,7 @@ final class EngineReplacementJournal {
         case completed
     }
 
-    struct Record: Codable, Equatable {
+    struct Record: Codable, Equatable, Sendable {
         let formatVersion: Int
         let operationID: UUID
         let profileKind: String
@@ -31,6 +31,8 @@ final class EngineReplacementJournal {
         let priorEngineBootID: String?
         let priorBrokerBootID: UUID
         var phase: Phase
+        var authorizedLegacyRemoval: LegacyEngineObservation? = nil
+        var legacyConsentRevision: UInt64? = nil
     }
 
     enum WriteStep: CaseIterable { case recordSynced, renamed, directorySynced }
@@ -122,7 +124,8 @@ final class EngineReplacementJournal {
     }
 
     /// Explicit Resume may finish a structurally valid interrupted journal
-    /// write. It never discards an invalid file or chooses a different target.
+    /// write, or discard syntax-truncated staging after validating the committed
+    /// record. It never chooses a different target.
     /// Service/process preconditions still have to be revalidated afterwards.
     func recoverInterruptedWrite() throws {
         // Validate the authoritative record before touching staging. A partial
@@ -195,12 +198,36 @@ final class EngineReplacementJournal {
         if var existing {
             guard existing.operationID == record.operationID else { throw Failure.busy }
             let priorPhase = existing.phase
+            if record.legacyConsentRevision != existing.legacyConsentRevision {
+                guard priorPhase == .prepared || priorPhase == .removalUncertain,
+                      record.phase == priorPhase,
+                      existing.authorizedLegacyRemoval != nil,
+                      record.authorizedLegacyRemoval != nil,
+                      (existing.legacyConsentRevision ?? 0) < UInt64.max,
+                      record.legacyConsentRevision == (existing.legacyConsentRevision ?? 0) + 1 else {
+                    throw Failure.invalidTransition
+                }
+                existing.legacyConsentRevision = record.legacyConsentRevision
+                existing.authorizedLegacyRemoval = record.authorizedLegacyRemoval
+            }
             existing.phase = record.phase
             guard existing == record else { throw Failure.invalidRecord }
             guard Self.allowsTransition(from: priorPhase, to: record.phase) else { throw Failure.invalidTransition }
         } else if record.phase != .prepared {
             throw Failure.invalidTransition
         }
+    }
+
+    /// A newly observed legacy process needs a new explicit approval. Keep the
+    /// same target, operation and uncertainty; renewing consent never unblocks
+    /// CREATE or forgets a removal that may already be in flight.
+    func renewLegacyConsent(expected: Record, observed: LegacyEngineObservation) throws {
+        guard try read() == expected else { throw Failure.busy }
+        guard (expected.legacyConsentRevision ?? 0) < UInt64.max else { throw Failure.invalidRecord }
+        var renewed = expected
+        renewed.authorizedLegacyRemoval = observed
+        renewed.legacyConsentRevision = (expected.legacyConsentRevision ?? 0) + 1
+        try save(renewed)
     }
 
     private static func allowsTransition(from: Phase, to: Phase) -> Bool {
@@ -226,12 +253,20 @@ final class EngineReplacementJournal {
 
     private func validate(_ record: Record) throws {
         guard record.profileKind == profile.rawValue else { throw Failure.wrongProfile }
-        guard record.formatVersion == 1,
+        guard [1, 2].contains(record.formatVersion),
               record.expectedArtifact.compareImage(to: record.expectedArtifact) == .sameImage,
               record.plistDigest.utf8.count == 64,
               record.plistDigest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
               (record.priorEnginePID == nil) == (record.priorEngineBootID == nil),
               record.priorEnginePID != 0 else { throw Failure.invalidRecord }
+        if let legacy = record.authorizedLegacyRemoval {
+            let installation: SoyehtInstallProfile = profile == .dev ? .dev : .release
+            guard record.formatVersion == 2, record.priorEnginePID == nil,
+                  legacy.isValid(profile: installation) else { throw Failure.invalidRecord }
+        }
+        if let revision = record.legacyConsentRevision {
+            guard revision > 0, record.authorizedLegacyRemoval != nil else { throw Failure.invalidRecord }
+        }
         if let boot = record.priorEngineBootID {
             guard boot.utf8.count == 32,
                   boot.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {

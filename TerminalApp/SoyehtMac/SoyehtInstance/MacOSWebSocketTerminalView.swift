@@ -1058,6 +1058,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             case .gap(let from, let to):
                 do { try replayCursor?.commitGap(from: from, to: to) }
                 catch { failSupervisedProtocol(error); return }
+                getTerminal().resetAfterStreamGap()
                 feed(text: "\r\n[\(LocalTerminalStream.retainedHistoryGapMessage)]\r\n")
             case .supervisedExit(let instanceID, let finalOffset, let exitCode):
                 guard replayCursor?.instanceID == instanceID, replayCursor?.applied == finalOffset else {

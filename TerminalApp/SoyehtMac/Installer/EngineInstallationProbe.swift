@@ -11,6 +11,7 @@ struct EngineInstallationProbe {
     let uid: UInt32
     let run: (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result
     let readRuntime: () -> EngineRuntimeIdentity?
+    var readProcess: (UInt32, UInt32) -> EngineProcessIncarnation? = { EngineProcessIncarnation.read(pid: $0, uid: $1) }
 
     func observe() -> EngineReplacementCoordinator.Observation {
         let owner = observeSupervisor()
@@ -21,7 +22,7 @@ struct EngineInstallationProbe {
         PTYSupervisorProbe(supervisor: supervisor, uid: uid, run: run).observe()
     }
 
-    private func observeEngine() -> EngineReplacementCoordinator.EngineObservation {
+    func observeEngine() -> EngineReplacementCoordinator.EngineObservation {
         let label = supervisor.profile.engineLaunchdLabel
         let user = command("user", label)
         let gui = command("gui", label)
@@ -35,14 +36,44 @@ struct EngineInstallationProbe {
         let domain = userPresence == .present ? "user" : "gui"
         let result = domain == "user" ? user : gui
         guard let first = LaunchdJobSnapshot(output: result.output, domain: domain, label: label, uid: uid),
-              let firstPID = first.pid,
-              let runtime = readRuntime(), runtime.processID == firstPID else { return .unknown }
+              let firstPID = first.pid else { return .unknown }
+        let incarnation = readProcess(firstPID, uid)
+        guard let runtime = readRuntime() else { return .unknown }
         let after = command(domain, label)
         guard after.status == 0,
               let second = LaunchdJobSnapshot(output: after.output, domain: domain, label: label, uid: uid),
               second == first else { return .unknown }
+        if runtime.isLegacyResponse {
+            guard let incarnation, readProcess(firstPID, uid) == incarnation,
+                  runtime.processID == nil || runtime.processID == firstPID else { return .unknown }
+            let legacy = LegacyEngineObservation(process: incarnation, domain: domain, job: first)
+            return legacy.isValid(profile: supervisor.profile) ? .legacy(legacy) : .unknown
+        }
+        guard runtime.processID == firstPID else { return .unknown }
         return .present(runtime, targetConfigurationMatches: domain == "user"
             && first.path == enginePlist.path && first.program == expectedEngineProgram)
+    }
+
+    func removalDomain(for expected: EngineReplacementCoordinator.EngineObservation) -> String? {
+        let pid: UInt32
+        switch (expected, observeEngine()) {
+        case let (.legacy(wanted), .legacy(actual)) where wanted == actual:
+            return actual.domain
+        case let (.present(wanted, _), .present(actual, _))
+            where wanted.processID == actual.processID && wanted.processBootID == actual.processBootID:
+            guard let value = actual.processID else { return nil }
+            pid = value
+        default: return nil
+        }
+        let label = supervisor.profile.engineLaunchdLabel
+        for domain in ["user", "gui"] {
+            let value = command(domain, label)
+            if value.status == 0,
+               let job = LaunchdJobSnapshot(output: value.output, domain: domain, label: label, uid: uid),
+               job.pid == pid, job.program == expectedEngineProgram,
+               supervisor.profile.ownsEngineCommand(job.arguments.joined(separator: " ")) { return domain }
+        }
+        return nil
     }
 
     private func command(_ domain: String, _ label: String) -> EngineBackgroundAgent.Result {

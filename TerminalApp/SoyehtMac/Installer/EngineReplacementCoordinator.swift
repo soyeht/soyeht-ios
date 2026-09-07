@@ -8,15 +8,18 @@ import SoyehtCore
 struct EngineReplacementCoordinator {
     typealias Journal = EngineReplacementJournal
 
-    enum Reason: Equatable {
+    enum Reason: Equatable, Sendable {
         case preparationUnavailable, observationUnavailable, supervisorIncompatible
         case originalProcessChanged, removalPreconditionUnavailable, confirmationPending
         case journalUnavailable
     }
 
-    enum Outcome: Equatable {
+    enum Outcome: Equatable, Sendable {
         case readyWithContinuity
+        case readyNoReplacement
         case readyAfterSupervisorRestart
+        case readyAfterLegacyMigration
+        case legacyMigrationRequired(LegacyEngineObservation, EngineArtifactIdentity)
         /// Preserve the journal and offer Resume. This is not evidence that
         /// the command failed, nor permission to create on the old engine.
         case unconfirmed(Reason)
@@ -26,6 +29,7 @@ struct EngineReplacementCoordinator {
         /// Both relevant launchd domains were positively observed absent.
         case absent
         case unknown
+        case legacy(LegacyEngineObservation)
         /// Runtime identity and job configuration belong to the same observed
         /// process. A PID disagreement is unknown, not incompatibility.
         case present(EngineRuntimeIdentity, targetConfigurationMatches: Bool)
@@ -49,7 +53,7 @@ struct EngineReplacementCoordinator {
         private var finished = false
         init(finish: @escaping (Outcome) -> Void) { self.finish = finish }
         func release(_ outcome: Outcome) {
-            precondition(!finished)
+            guard !finished else { return }
             finished = true
             finish(outcome)
         }
@@ -69,10 +73,10 @@ struct EngineReplacementCoordinator {
         /// Runs with admission closed, immediately before removal. Includes
         /// legacy migration eligibility; a zero-session query alone is not a
         /// barrier against other clients creating sessions.
-        var validateRemoval: (Journal.Record, EngineRuntimeIdentity) throws -> Void
+        var validateRemoval: (Journal.Record, EngineObservation) throws -> Void
         /// Bound to the engine's label by the adapter. No supervisor label is
         /// accepted by this interface.
-        var removeEngine: () -> Void
+        var removeEngine: (EngineObservation) -> Void
         var loadPreparedEngine: () -> Void
         var waitBeforeObservation: () -> Void
     }
@@ -136,6 +140,22 @@ struct EngineReplacementCoordinator {
                     try journal.save(record)
                     requestedLoad = true
                     operations.loadPreparedEngine()
+                case .legacy(let legacy):
+                    guard record.phase == .prepared || record.phase == .removalUncertain else { continue }
+                    guard record.authorizedLegacyRemoval == legacy else {
+                        outcome = .unconfirmed(.originalProcessChanged)
+                        return outcome
+                    }
+                    guard !requestedRemoval else { continue }
+                    do { try operations.validateRemoval(record, observation.engine) }
+                    catch {
+                        outcome = .unconfirmed(.removalPreconditionUnavailable)
+                        return outcome
+                    }
+                    record.phase = .removalUncertain
+                    try journal.save(record)
+                    requestedRemoval = true
+                    operations.removeEngine(observation.engine)
                 case let .present(runtime, targetConfigurationMatches):
                     guard let pid = runtime.processID, pid > 0,
                           let boot = runtime.processBootID, boot.utf8.count == 32,
@@ -156,7 +176,8 @@ struct EngineReplacementCoordinator {
                             priorBrokerBootID: record.priorBrokerBootID, supervisor: supervisor)
                         if readiness != .unconfirmed {
                             try journal.complete(record)
-                            outcome = readiness == .readyWithContinuity ? .readyWithContinuity : .readyAfterSupervisorRestart
+                            outcome = record.authorizedLegacyRemoval != nil ? .readyAfterLegacyMigration
+                                : readiness == .readyWithContinuity ? .readyWithContinuity : .readyAfterSupervisorRestart
                             return outcome
                         }
                         if runtime.artifact?.compareImage(to: record.expectedArtifact) == .sameImage,
@@ -175,7 +196,7 @@ struct EngineReplacementCoordinator {
                         return outcome
                     }
                     guard !requestedRemoval else { continue }
-                    do { try operations.validateRemoval(record, runtime) }
+                    do { try operations.validateRemoval(record, observation.engine) }
                     catch {
                         outcome = .unconfirmed(.removalPreconditionUnavailable)
                         return outcome
@@ -183,7 +204,7 @@ struct EngineReplacementCoordinator {
                     record.phase = .removalUncertain
                     try journal.save(record)
                     requestedRemoval = true
-                    operations.removeEngine()
+                    operations.removeEngine(observation.engine)
                 }
             }
         } catch {
