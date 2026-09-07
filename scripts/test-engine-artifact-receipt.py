@@ -109,10 +109,17 @@ class ReceiptTests(unittest.TestCase):
         self.assertNotEqual(embed().returncode, 0)
         self.assertFalse((app / "Contents/Helpers/theyos-engine").exists())
         (stage / "theyos-engine").write_bytes(self.image)
+        legacy_receipt = app / "Contents/Helpers" / manifest["artifactReceipt"]
+        legacy_receipt.parent.mkdir(parents=True, exist_ok=True)
+        legacy_receipt.write_text("stale incremental build layout")
         result = embed()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         helpers = app / "Contents/Helpers"
-        result = receipt.validate(helpers / "theyos-engine", helpers / manifest["artifactReceipt"])
+        resource = app / manifest["artifactReceiptBundleDirectory"] / manifest["artifactReceipt"]
+        self.assertTrue(resource.is_relative_to(app / "Contents/Resources"))
+        self.assertFalse(legacy_receipt.exists(), "data in Helpers prevents signing the app")
+        self.assertEqual(sorted(p.name for p in helpers.iterdir()), sorted(manifest["executables"]))
+        result = receipt.validate(helpers / "theyos-engine", resource)
         self.assertEqual(result["artifact"], self.record["artifact"])
         self.assertNotEqual(result["executable_sha256"], self.record["executable_sha256"])
         for name in manifest["executables"]:

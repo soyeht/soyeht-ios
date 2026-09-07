@@ -8,5 +8,6 @@
     "theyos-ssh",
     "theyos-provision-inject"
   ],
-  "artifactReceipt": "engine-build-info.json"
+  "artifactReceipt": "engine-build-info.json",
+  "artifactReceiptBundleDirectory": "Contents/Resources/Engine"
 }

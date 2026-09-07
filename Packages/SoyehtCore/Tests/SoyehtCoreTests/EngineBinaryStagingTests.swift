@@ -3,6 +3,13 @@ import Testing
 @testable import SoyehtCore
 
 struct EngineBinaryStagingTests {
+    @Test func bundledReceiptIsASealedResourceOutsideNestedCode() {
+        let bundle = URL(fileURLWithPath: "/fixture/Sample.app")
+        let receipt = EmbeddedEngineHelpers.artifactReceiptURL(inBundle: bundle)
+        #expect(receipt.path.hasPrefix(bundle.appendingPathComponent("Contents/Resources").path + "/"))
+        #expect(receipt.lastPathComponent == EmbeddedEngineHelpers.artifactReceiptName)
+    }
+
     @Test func firstInstallationAndReplacementPreserveTheOpenedImage() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)

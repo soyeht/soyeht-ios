@@ -29,6 +29,8 @@ LAUNCH_AGENT_DEV_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engin
 LAUNCH_AGENT_DEV_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.dev.plist"
 HELPER_NAMES=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --support-only)
 RECEIPT_NAME=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --receipt-only)
+RECEIPT_BUNDLE_PATH=$(python3 "${SRCROOT}/../scripts/engine-helper-manifest.py" --bundle-receipt-path)
+RECEIPT_DEST="${CODESIGNING_FOLDER_PATH}/${RECEIPT_BUNDLE_PATH}"
 RECEIPT_CHECKER="${SRCROOT}/../scripts/engine-artifact-receipt.py"
 REQUIRED_HELPERS=()
 while IFS= read -r helper; do REQUIRED_HELPERS+=("${helper}"); done <<< "${HELPER_NAMES}"
@@ -152,7 +154,11 @@ done
 
 # codesign changes file bytes while preserving linked image identity. Input
 # was verified before copying; bind the receipt to the signed build output.
+# Helpers is a nested-code directory: JSON belongs to sealed resources. Remove
+# the earlier layout only from this build output, including incremental builds.
+rm -f "${HELPERS_DIR}/${RECEIPT_NAME}"
+mkdir -p "$(dirname "${RECEIPT_DEST}")"
 python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${THEYOS_BUILD_DIR}/${RECEIPT_NAME}" \
-    --after-codesign "${HELPERS_DIR}/${RECEIPT_NAME}"
-python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${HELPERS_DIR}/${RECEIPT_NAME}"
+    --after-codesign "${RECEIPT_DEST}"
+python3 "${RECEIPT_CHECKER}" "${ENGINE_DEST}" "${RECEIPT_DEST}"
 echo "Embedded engine helpers → ${HELPERS_DIR}"

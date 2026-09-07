@@ -51,15 +51,16 @@ enum EnginePackager {
     /// string cannot make a package without a supervisor usable.
     static func validatedBundledArtifact() throws -> EngineArtifactIdentity {
         _ = try EmbeddedEngineBundleProbe().validateBundledSupport()
-        return try validatedArtifact(in: bundledSupportBinaryURL(named: "theyos-engine").deletingLastPathComponent())
+        return try validatedArtifact(in: bundledSupportBinaryURL(named: "theyos-engine").deletingLastPathComponent(),
+                                     receiptURL: EmbeddedEngineHelpers.artifactReceiptURL(inBundle: Bundle.main.bundleURL))
     }
 
-    static func validatedArtifact(in directory: URL) throws -> EngineArtifactIdentity {
+    static func validatedArtifact(in directory: URL, receiptURL: URL? = nil) throws -> EngineArtifactIdentity {
         // Never execute a candidate engine to discover its CLI contract: an
         // older engine may ignore an unknown option and start the service.
         // Delivery must supply metadata bound to the exact executable bytes.
         let executable = directory.appendingPathComponent("theyos-engine")
-        let metadataURL = executable.deletingLastPathComponent().appendingPathComponent(EmbeddedEngineHelpers.artifactReceiptName)
+        let metadataURL = receiptURL ?? directory.appendingPathComponent(EmbeddedEngineHelpers.artifactReceiptName)
         struct ArtifactReceipt: Decodable {
             let artifact: EngineArtifactIdentity
             let executable_sha256: String
@@ -104,8 +105,7 @@ enum EnginePackager {
             try installBinary(named: binaryName, sourceURL: sourceURL, destinationURL: destinationURL)
         }
         let receiptName = EmbeddedEngineHelpers.artifactReceiptName
-        let receipt = try bundledSupportBinaryURL(named: "theyos-engine")
-            .deletingLastPathComponent().appendingPathComponent(receiptName)
+        let receipt = EmbeddedEngineHelpers.artifactReceiptURL(inBundle: Bundle.main.bundleURL)
         try Data(contentsOf: receipt).write(to: engineDestinationDirectory.appendingPathComponent(receiptName), options: .atomic)
     }
 

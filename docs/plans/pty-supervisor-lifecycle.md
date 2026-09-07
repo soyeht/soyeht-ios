@@ -174,6 +174,12 @@ passo de assinatura controlado. O hash da saída identifica aquela saída exata,
 não promete assinatura reproduzível. O validador Python tem uma cópia vendorizada
 no consumidor; `check-engine-package-contract.py --theyos-repo <checkout>`
 exige igualdade byte a byte e exercita emissão, leitura e recusa de campo alterado.
+No app, o recibo pós-assinatura fica em `Contents/Resources/Engine`, selado pela
+assinatura do bundle. `Contents/Helpers` contém apenas código; o codesign recusa
+um JSON ali como subcomponente sem assinatura. O diretório do recibo no bundle
+também vem do manifesto compartilhado; tarball e cache mantêm o recibo ao lado
+do executável. O embed remove apenas o recibo do layout anterior em seu próprio
+build incremental e o teste confere essa transição.
 Esse gate é obrigatório dentro de `check-terminal-contract.py`; a ligação ao
 checker governado de release e seus pins ainda pertence à entrega coordenada.
 No app, `EngineMachOIdentity` lê o Mach-O diretamente em Swift: não usa
