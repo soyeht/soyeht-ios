@@ -128,15 +128,24 @@ sign_embedded_sparkle() {
     done
 }
 
+# The helper roster comes from the manifest `fetch-engine.sh` and
+# `embed-engine.sh` already read. It used to be six names written out here, and
+# `soyeht-ptyd` was never added when the supervisor shipped: the export step
+# happened to sign it anyway, so nothing broke and nothing said so. A list that
+# is right by luck is the same defect as a list that is wrong.
+engine_helper_names() {
+    python3 "${REPO_ROOT}/scripts/engine-helper-manifest.py"
+}
+
 sign_engine_helpers() {
     local app_path="$1"
     local helpers_dir="${app_path}/Contents/Helpers"
     local engine_entitlements="${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtEngine.entitlements"
     local vmrunner_entitlements="${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtVMRunner.entitlements"
-    local helper helper_path entitlements_path
+    local helper helper_path entitlements_path authority
 
     echo "→ Re-signing embedded engine helpers..."
-    for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject; do
+    while IFS= read -r helper; do
         helper_path="${helpers_dir}/${helper}"
         if [[ ! -x "${helper_path}" ]]; then
             echo "error: exported app is missing executable ${helper_path}" >&2
@@ -154,7 +163,62 @@ sign_engine_helpers() {
             --options runtime \
             --entitlements "${entitlements_path}" \
             "${helper_path}"
-    done
+
+        # Assert the identity landed. `codesign` succeeding is not the same as
+        # the helper carrying the identity we meant to give it.
+        authority="$(codesign -dv --verbose=2 "${helper_path}" 2>&1 \
+            | sed -n 's/^Authority=//p' | head -1)"
+        if [[ "${authority}" != "${DEVELOPER_ID_APPLICATION}" ]]; then
+            echo "error: ${helper} is signed by '${authority:-nothing}', not '${DEVELOPER_ID_APPLICATION}'" >&2
+            exit 1
+        fi
+    done < <(engine_helper_names)
+}
+
+# ── The engine artifact receipt ───────────────────────────────────────────────
+#
+# The receipt binds the shipped engine to its version, source commit, Mach-O
+# image UUID and byte digest. `embed-engine.sh` binds it during the build;
+# `sign_engine_helpers` above then re-signs that helper, which REWRITES THE
+# FILE — so the digest the receipt carries stops describing the binary it sits
+# beside.
+#
+# Note what this is NOT: it is not a transition from an ad-hoc signature to a
+# real one. Measured on the failing build, the engine inside the archive was
+# already signed with the Developer ID identity, and signing it again with the
+# same identity still produced different bytes. Codesign is not reproducible —
+# which is exactly why the receipt has to be rebound rather than assumed.
+#
+# `mac-v0.1.49` shipped exactly that. Measured across one build: the archive's
+# engine and receipt agreed on `e413cfc4…`, and the signed product carried
+# `937d9597…` against the same untouched receipt. `EnginePackager` compares
+# that digest before anything else, so the installed app would have thrown
+# `incompatiblePackage` and the engine migration — the whole point of the
+# release — would have refused its own package on every Mac.
+#
+# So: validate the INPUT strictly before anything touches it, rebind only after
+# the LAST helper signature, and only then sign the outer app — the receipt
+# lives in sealed `Contents/Resources`, so writing it after the outer signature
+# would break the seal instead.
+engine_receipt_path() {
+    python3 "${REPO_ROOT}/scripts/engine-helper-manifest.py" --bundle-receipt-path
+}
+
+validate_engine_receipt() {
+    local app_path="$1" label="$2"
+    python3 "${REPO_ROOT}/scripts/engine-artifact-receipt.py" \
+        "${app_path}/Contents/Helpers/theyos-engine" \
+        "${app_path}/$(engine_receipt_path)"
+    echo "engine receipt (${label}): describes the engine beside it"
+}
+
+rebind_engine_receipt() {
+    local app_path="$1"
+    local receipt="${app_path}/$(engine_receipt_path)"
+    echo "→ Rebinding the engine receipt to the signed helper..."
+    python3 "${REPO_ROOT}/scripts/engine-artifact-receipt.py" \
+        "${app_path}/Contents/Helpers/theyos-engine" "${receipt}" \
+        --after-codesign "${receipt}"
 }
 
 # ── Guards ────────────────────────────────────────────────────────────────────
@@ -217,28 +281,31 @@ if [[ ! -d "${APP_PATH}" ]]; then
 fi
 
 ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
-for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject; do
+while IFS= read -r helper; do
     helper_path="${APP_PATH}/Contents/Helpers/${helper}"
     if [[ ! -x "${helper_path}" ]]; then
         echo "error: exported app is missing executable ${helper_path}" >&2
         echo "       Run scripts/fetch-engine.sh before archiving, then archive again." >&2
         exit 1
     fi
-done
+done < <(engine_helper_names)
 if [[ ! -f "${ENGINE_AGENT}" ]]; then
     echo "error: exported app is missing ${ENGINE_AGENT}" >&2
     echo "       The Embed Engine Binary build phase did not copy the SMAppService plist." >&2
     exit 1
 fi
 
+validate_engine_receipt "${APP_PATH}" "input, before any signing"
 sign_embedded_sparkle
 sign_engine_helpers "${APP_PATH}"
+rebind_engine_receipt "${APP_PATH}"
 sign_outer_app "${APP_PATH}"
 
 # ── Step 2: Verify signing ────────────────────────────────────────────────────
 
 echo "→ Verifying code signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
+validate_engine_receipt "${APP_PATH}" "output, after the outer signature"
 if ! spctl --assess --verbose=4 --type exec "${APP_PATH}"; then
     echo "Pre-notarization Gatekeeper assessment failed; continuing to DMG creation." >&2
 fi
