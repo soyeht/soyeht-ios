@@ -6,9 +6,10 @@ import Foundation
 /// Two grants travel in one claim, and they are not the same grant:
 ///
 ///  - `mac_local_pairing` is a shared secret the Mac issues in
-///    `PairingStore.ensurePairing`. Both sides prove possession of it in the
-///    presence handshake, and it opens presence and pane attach on THAT Mac
-///    and nothing else. No household certificate is consulted.
+///    `PairingStore.ensurePairing`. The phone presents an HMAC over it in the
+///    presence handshake and the Mac's `PresenceSession` verifies it; it opens
+///    presence and pane attach on THAT Mac and nothing else. No household
+///    certificate is consulted.
 ///  - The household device certificate is issued by the home's owner person
 ///    through `device_pairing_approve`. It grants household capabilities —
 ///    `claws.*`, `household.invite`, `household.revoke`, `household.add_machine`.
@@ -19,10 +20,11 @@ import Foundation
 /// return needs an owner who can act. Measured on the owner's production Mac
 /// on 2026-09-07: the home's owner is a person identity issued to an iPhone
 /// that can no longer answer, the Mac holds no owner session, APNS is
-/// unconfigured, and `household/owner_events/log.cbor` is a queue of
-/// `device-pair-request` events — several named `iPhone` — that nobody will
-/// ever read. The phone held a working secret the whole time and refused to
-/// use it.
+/// unconfigured, and `household/owner_events/log.cbor` holds a queue of
+/// `device-pair-request` events — several named `iPhone` — with no
+/// `device_pairing.approve` and no owner-events read in four days of engine
+/// log. The phone had received a Mac-local secret in the claim and did not
+/// install it.
 ///
 /// What this policy does NOT change, on purpose:
 ///
@@ -46,9 +48,15 @@ public enum ExistingHouseConnectionPath: Equatable {
     /// then finish as `.connectedToExistingMac` without starting household
     /// pairing.
     case macLocal
-    /// No usable secret for the confirmed home: run the household ceremony,
-    /// exactly as before.
+    /// A first-owner home (its link is not a device-pairing link): run the
+    /// first-owner ceremony, exactly as before. There is no owner to wait on.
     case householdCeremony(ExistingHouseConnectionReason)
+    /// A home that already has an owner, and no Mac-local secret to connect
+    /// with after the caller's bounded wait for the claim. Refuse with an
+    /// actionable error and start nothing: running the household ceremony
+    /// here would wait on an owner who may never answer, which is the exact
+    /// deadlock this policy exists to remove.
+    case macInvitationUnavailable(ExistingHouseConnectionReason)
 }
 
 public enum ExistingHouseConnectionReason: String, Equatable, Sendable {
@@ -74,17 +82,32 @@ public enum ExistingHouseConnectionPolicy {
     ///   - hasDeferredLocalPairing: a secret is held for this discovery.
     ///   - installationMatches: the claim's installation profile matched the
     ///     running app's when it was accepted.
+    ///   - homeHasOwner: the confirmed card's link is a device-pairing link,
+    ///     i.e. the home already has an owner person. A first-owner link is
+    ///     the one case where the ceremony cannot deadlock.
+    ///
+    /// The Bonjour card can be on screen before the claim delivers the secret.
+    /// Callers wait a bounded time for the confirmed home's claim before
+    /// asking; this function does not know about time, only about what is
+    /// held at the moment it is asked.
     public static func chooseConnectionPath(
         confirmedHouseholdKey: String,
         deferredPairingHouseholdKey: String?,
         hasDeferredLocalPairing: Bool,
-        installationMatches: Bool
+        installationMatches: Bool,
+        homeHasOwner: Bool
     ) -> ExistingHouseConnectionPath {
-        guard hasDeferredLocalPairing else { return .householdCeremony(.noLocalPairing) }
-        guard installationMatches else { return .householdCeremony(.installationMismatch) }
-        guard deferredPairingHouseholdKey == confirmedHouseholdKey else {
-            return .householdCeremony(.householdMismatch)
-        }
-        return .macLocal
+        let refusal: ExistingHouseConnectionReason?
+        if !hasDeferredLocalPairing { refusal = .noLocalPairing }
+        else if !installationMatches { refusal = .installationMismatch }
+        else if deferredPairingHouseholdKey != confirmedHouseholdKey { refusal = .householdMismatch }
+        else { refusal = nil }
+
+        guard let refusal else { return .macLocal }
+        // A mismatch is an explicit refusal in every home: a secret for another
+        // home or another app never becomes a reason to run any ceremony.
+        if refusal != .noLocalPairing { return .macInvitationUnavailable(refusal) }
+        return homeHasOwner ? .macInvitationUnavailable(.noLocalPairing)
+                            : .householdCeremony(.noLocalPairing)
     }
 }
