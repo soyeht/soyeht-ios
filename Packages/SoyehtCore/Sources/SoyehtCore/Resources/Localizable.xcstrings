@@ -1,6 +1,113 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "This approval request is no longer available. Send a new request and compare its new words on the approving device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This approval request is no longer available. Send a new request and compare its new words on the approving device."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido de aprovação não está mais disponível. Envie um novo pedido e compare as novas palavras no dispositivo que vai aprová-lo."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido de aprovação já não está disponível. Envie um novo pedido e compare as novas palavras no dispositivo que o vai aprovar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Esta solicitud de aprobación ya no está disponible. Envía una nueva solicitud y compara sus nuevas palabras en el dispositivo que la aprobará."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Diese Genehmigungsanfrage ist nicht mehr verfügbar. Senden Sie eine neue Anfrage und vergleichen Sie die neuen Wörter auf dem genehmigenden Gerät."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Cette demande d’approbation n’est plus disponible. Envoyez une nouvelle demande et comparez ses nouveaux mots sur l’appareil qui l’approuvera."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Этот запрос на одобрение больше недоступен. Отправьте новый запрос и сравните новые слова на устройстве, которое его одобрит."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Permintaan persetujuan ini tidak tersedia lagi. Kirim permintaan baru dan bandingkan kata-kata barunya di perangkat yang akan menyetujuinya."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "طلب الموافقة هذا لم يعد متاحًا. أرسل طلبًا جديدًا وقارن كلماته الجديدة على الجهاز الذي سيوافق عليه."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "منظوری کی یہ درخواست اب دستیاب نہیں ہے۔ نئی درخواست بھیجیں اور منظور کرنے والے آلے پر اس کے نئے الفاظ کا موازنہ کریں۔"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "この承認リクエストは利用できなくなりました。新しいリクエストを送信し、承認するデバイスで新しい単語を照合してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "이 승인 요청은 더 이상 사용할 수 없습니다. 새 요청을 보내고 승인할 기기에서 새 단어를 비교하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "此批准请求已不可用。请发送新请求，并在批准设备上核对新的单词。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "यह मंज़ूरी अनुरोध अब उपलब्ध नहीं है। नया अनुरोध भेजें और मंज़ूरी देने वाले डिवाइस पर उसके नए शब्दों की तुलना करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "ही मंजुरीची विनंती आता उपलब्ध नाही. नवीन विनंती पाठवा आणि मंजुरी देणाऱ्या डिव्हाइसवर तिच्या नवीन शब्दांची तुलना करा."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "ఈ ఆమోద అభ్యర్థన ఇక అందుబాటులో లేదు. కొత్త అభ్యర్థనను పంపి, ఆమోదించే పరికరంలో కొత్త పదాలను పోల్చండి."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "এই অনুমোদনের অনুরোধ আর পাওয়া যাচ্ছে না। নতুন অনুরোধ পাঠান এবং অনুমোদনকারী ডিভাইসে তার নতুন শব্দগুলো মিলিয়ে দেখুন।"
+          }
+        }
+      }
+    },
     "terminal.failure.intentExpired": {
       "extractionState": "manual",
       "localizations": {

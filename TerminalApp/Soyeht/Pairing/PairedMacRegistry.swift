@@ -106,6 +106,12 @@ final class PairedMacRegistry: ObservableObject {
         clients[macID]
     }
 
+    /// A confirmed new pairing can replace a revoked credential for this Mac.
+    /// An existing client holds its original secret, so it must be rebuilt.
+    func invalidateClient(for macID: UUID) {
+        clients.removeValue(forKey: macID)?.disconnect()
+    }
+
     private func buildEndpoint(for mac: PairedMac) -> MacPresenceClient.Endpoint? {
         guard let host = mac.lastHost,
               let presencePort = mac.presencePort,
