@@ -1,29 +1,15 @@
 import Foundation
 import os
 
-/// Installs and drives the engine's launchd job in the USER domain
-/// (`user/<uid>`), where it outlives the graphical session.
-///
-/// Why not `SMAppService`: it registers an agent into `gui/<uid>`, the Aqua
-/// session, which launchd tears down at logout. On 2026-09-04 the
-/// WindowServer exited on the owner's Mac, loginwindow closed the session,
-/// and the engine died with it — taking every brokered PTY, after the whole
-/// promise of the broker was that sessions outlive the app. A job marked
-/// `LimitLoadToSessionType = Background` is loaded into the user domain
-/// instead; `bootstrap gui/<uid>` REFUSES such a plist (EIO), which is the
-/// guarantee, not a limitation.
-///
-/// The user domain has no on-disk directory of its own — `~/Library/
-/// LaunchAgents` is the Aqua one — so the load goes through the legacy
-/// `launchctl load -S Background`, the one interface that names a session
-/// type. `bootstrap user/<uid>` is the modern spelling and wants root; this
-/// needs none, which keeps the zero-sudo install (FR-012) intact.
+/// Installs the engine job in the user's Background session domain.
+/// Replacing this job terminates an in-process terminal backend. The caller
+/// must establish that replacement is allowed; this helper does not inventory
+/// sessions and must never be used to refresh a live PTY supervisor.
 enum EngineBackgroundAgent {
     private static let log = Logger(subsystem: "com.soyeht.mac", category: "EngineBackgroundAgent")
 
-    /// Where launchd reads this profile's job from. The file has to exist on
-    /// disk at every login, not only when the app runs: that is what starts
-    /// the engine again after a reboot with nobody logged in yet.
+    /// Persistent plist location for this profile. Loading and observing the
+    /// job are separate operations; this path alone proves no running service.
     static func installedPlistURL(
         label: String,
         home: URL = FileManager.default.homeDirectoryForCurrentUser
@@ -35,20 +21,35 @@ enum EngineBackgroundAgent {
 
     // MARK: - Reading the world
 
-    /// Is this profile's job loaded in the user domain right now?
+    /// Positive observation only. A false value is not proof of absence;
+    /// replacement uses JobPresence so probe errors cannot release a label.
     static func isLoadedInUserDomain(label: String) -> Bool {
-        launchctl(["print", "user/\(getuid())/\(label)"]).status == 0
+        presence(domain: "user", label: label) == .present
     }
 
     /// Is it still loaded in the graphical session — the domain being left?
     static func isLoadedInGUIDomain(label: String) -> Bool {
-        launchctl(["print", "gui/\(getuid())/\(label)"]).status == 0
+        presence(domain: "gui", label: label) == .present
     }
 
-    /// How long to wait for launchd to release a booted-out label before
-    /// loading over it. Generous next to the ~20 ms launchd actually takes,
-    /// because the alternative — loading too early — costs every live session
-    /// and leaves nothing running.
+    enum JobPresence: Equatable { case present, absent, unknown }
+
+    static func classifyPresence(_ result: Result, domain: String, label: String, uid: UInt32) -> JobPresence {
+        if result.status == 0 { return .present }
+        let lines = result.output.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if result.status == 113,
+           lines.contains("Could not find service \"\(label)\" in domain for uid: \(uid)") { return .absent }
+        if result.status == 112, domain == "gui",
+           lines.contains("Could not find domain for user gui: \(uid)") { return .absent }
+        return .unknown
+    }
+
+    private static func presence(domain: String, label: String) -> JobPresence {
+        classifyPresence(launchctl(["print", "\(domain)/\(getuid())/\(label)"]),
+                         domain: domain, label: label, uid: getuid())
+    }
+
+    /// Maximum poll budget before refusing to load over a retained label.
     static let labelReleaseBudget: TimeInterval = 5
 
     /// Blocks until `label` is absent from BOTH domains, or the budget runs
@@ -63,7 +64,8 @@ enum EngineBackgroundAgent {
         sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
     ) -> Bool {
         let probe = stillLoaded ?? { name in
-            isLoadedInUserDomain(label: name) || isLoadedInGUIDomain(label: name)
+            presence(domain: "user", label: name) != .absent
+                || presence(domain: "gui", label: name) != .absent
         }
         let step: TimeInterval = 0.05
         var waited: TimeInterval = 0
@@ -91,13 +93,8 @@ enum EngineBackgroundAgent {
         case failed(String)
     }
 
-    /// Copies the bundled plist into `~/Library/LaunchAgents` and loads it
-    /// into the user domain.
-    ///
-    /// Idempotent by construction: an already-loaded job is unloaded first,
-    /// because `load` on a live label is a no-op that would silently keep the
-    /// previous command line. Callers decide WHEN this is allowed to happen —
-    /// it stops a running engine, and that costs whatever is attached to it.
+    /// Stages the plist, then explicitly replaces the engine job. This is a
+    /// destructive operation, even when the staged plist has identical bytes.
     @discardableResult
     static func install(bundledPlist: URL, label: String) -> InstallOutcome {
         let destination = installedPlistURL(label: label)
@@ -113,55 +110,55 @@ enum EngineBackgroundAgent {
             return .failed("plist: \(error.localizedDescription)")
         }
 
-        // Both domains, in this order: the GUI job is the one being replaced,
-        // and leaving it loaded would keep the label taken.
-        _ = launchctl(["bootout", "gui/\(getuid())/\(label)"])
-        _ = launchctl(["bootout", "user/\(getuid())/\(label)"])
+        return replaceLoadedJob(label: label, destination: destination, operations: .live)
+    }
 
-        // `bootout` RETURNS BEFORE launchd has finished releasing the label,
-        // and loading into a name launchd still holds fails with EEXIST.
-        //
-        // MEASURED on the owner's Mac 2026-09-05, 18 ms apart:
-        //
-        //     14:24:05.134  bootout gui/501/com.soyeht.engine [37543]
-        //     14:24:05.152  launchd: Caller tried to import service with same
-        //                   label as an existing service ... failed (17: File exists)
-        //
-        // The engine was gone and nothing replaced it — eleven agent sessions
-        // died and the machine sat with no engine for thirty-six seconds, until
-        // an unrelated relaunch happened to re-bootstrap it. The old code could
-        // not even see the failure coming: `launchctl load` reports success
-        // whether or not launchd accepted the job, so the only witness was the
-        // `isLoadedInUserDomain` check AFTER the kill.
-        //
-        // So wait for the name to actually come free. A poll, because launchd
-        // offers nothing to wait on.
-        if !awaitLabelReleased(label: label) {
-            log.error("\(label, privacy: .public) was still loaded \(Self.labelReleaseBudget, privacy: .public)s after bootout; loading anyway")
+    /// Complete service boundary for deterministic tests. Production uses
+    /// launchctl; tests record commands without touching an installed job.
+    struct Operations {
+        var run: ([String]) -> Result
+        var waitForRelease: (String) -> Bool
+        var isLoaded: (String) -> Bool
+
+        static var live: Operations {
+            Operations(
+                run: { launchctl($0) },
+                waitForRelease: { awaitLabelReleased(label: $0) },
+                isLoaded: { isLoadedInUserDomain(label: $0) }
+            )
+        }
+    }
+
+    static func replaceLoadedJob(
+        label: String, destination: URL, operations: Operations
+    ) -> InstallOutcome {
+        _ = operations.run(["bootout", "gui/\(getuid())/\(label)"])
+        _ = operations.run(["bootout", "user/\(getuid())/\(label)"])
+
+        // bootout completion is not label release. A timeout is an unresolved
+        // replacement, never permission to load into a still-owned name.
+        guard operations.waitForRelease(label) else {
+            log.error("engine label release timed out; refusing load")
+            return .failed("label release timed out")
         }
 
-        let load = launchctl(["load", "-S", "Background", destination.path])
+        let arguments = ["load", "-S", "Background", destination.path]
+        let load = operations.run(arguments)
         guard load.status == 0 else {
-            log.error("launchctl load -S Background failed for \(label, privacy: .public): \(load.output, privacy: .public)")
             return .failed("load: \(load.output)")
         }
-        // One retry, because the whole cost of this call has ALREADY been paid:
-        // the engine is dead either way, and giving up here is what left the
-        // Mac with no engine at all. A second attempt after the name is
-        // provably free costs a second and can only help.
-        if !isLoadedInUserDomain(label: label) {
-            log.error("\(label, privacy: .public) did not appear in the user domain; the engine is already down, so retrying the load")
-            _ = awaitLabelReleased(label: label)
-            let retry = launchctl(["load", "-S", "Background", destination.path])
-            if retry.status != 0 {
-                log.error("retry of launchctl load -S Background failed for \(label, privacy: .public): \(retry.output, privacy: .public)")
-            }
+        if operations.isLoaded(label) { return .installed }
+
+        // A successful command is not proof of registration. Retry once only
+        // after proving the name free again, then require observed membership.
+        guard operations.waitForRelease(label) else {
+            return .failed("label release timed out before load retry")
         }
-        guard isLoadedInUserDomain(label: label) else {
-            log.error("\(label, privacy: .public) did not appear in the user domain after loading")
+        let retry = operations.run(arguments)
+        guard retry.status == 0 else { return .failed("load retry: \(retry.output)") }
+        guard operations.isLoaded(label) else {
             return .failed("not in user domain after load")
         }
-        log.notice("engine job loaded in the user domain: \(label, privacy: .public)")
         return .installed
     }
 
@@ -187,28 +184,22 @@ enum EngineBackgroundAgent {
 
     // MARK: - launchctl
 
-    private struct Result {
+    struct Result {
         let status: Int32
         let output: String
     }
 
     private static func launchctl(_ arguments: [String]) -> Result {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
         do {
-            try process.run()
+            let result = try EngineCommandRunner.runBlocking(
+                executable: URL(fileURLWithPath: "/bin/launchctl"), arguments: arguments
+            )
+            if result.timedOut { return Result(status: -1, output: "launchctl timed out; result unconfirmed") }
+            if result.outputTruncated { return Result(status: -1, output: "launchctl output exceeded limit") }
+            return Result(status: result.status, output: String(decoding: result.output, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines))
         } catch {
             return Result(status: -1, output: error.localizedDescription)
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return Result(
-            status: process.terminationStatus,
-            output: String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        )
     }
 }

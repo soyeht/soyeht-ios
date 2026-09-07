@@ -1,20 +1,23 @@
 import XCTest
 @testable import SoyehtMacDomain
 
-/// Moving the engine's job between launchd domains means booting the old one
-/// out and loading the new one. `bootout` RETURNS BEFORE launchd has released
-/// the label, and loading into a name launchd still holds fails with EEXIST.
-///
-/// MEASURED on the owner's Mac 2026-09-05, 18 ms apart:
-///
-///     14:24:05.134  bootout gui/501/com.soyeht.engine [37543]
-///     14:24:05.152  launchd: Caller tried to import service with same label
-///                   as an existing service ... failed (17: File exists)
-///
-/// Eleven agent sessions died and the Mac sat with no engine for thirty-six
-/// seconds. The old code could not see it coming: `launchctl load` reports
-/// success whether or not launchd accepted the job.
+/// Verify the replacement sequence through the complete service boundary.
+/// No test in this file invokes launchctl or mutates an installed service.
 final class EngineLabelReleaseTests: XCTestCase {
+
+    func testProbeErrorsDoNotProveLabelRelease() {
+        let classify = { (status: Int32, output: String) in
+            EngineBackgroundAgent.classifyPresence(.init(status: status, output: output), domain: "user", label: "fixture", uid: 123)
+        }
+        XCTAssertEqual(classify(0, "job"), .present)
+        XCTAssertEqual(classify(-1, "launchctl timed out"), .unknown)
+        XCTAssertEqual(classify(1, "permission denied"), .unknown)
+        XCTAssertEqual(classify(113, ""), .unknown)
+        XCTAssertEqual(classify(113, "Could not find service \"other\" in domain for uid: 123"), .unknown)
+        XCTAssertEqual(classify(113, "Could not find service \"fixture\" in domain for uid: 1234"), .unknown)
+        XCTAssertEqual(classify(113, "Could not find service \"fixture\" in domain for uid: 123"), .absent)
+        XCTAssertEqual(EngineBackgroundAgent.classifyPresence(.init(status: 112, output: "Could not find domain for user gui: 123"), domain: "gui", label: "fixture", uid: 123), .absent)
+    }
 
     func testWaitsUntilLaunchdActuallyReleasesTheLabel() {
         // Still held for the first three probes — the shape launchd showed.
@@ -34,8 +37,7 @@ final class EngineLabelReleaseTests: XCTestCase {
         XCTAssertEqual(slept.count, 3, "it waited once per probe that still saw the label")
     }
 
-    /// A name that never comes free must not block the app forever: the engine
-    /// is already down at this point, and hanging is worse than trying.
+    /// An unresolved label is a bounded failure, not permission to load.
     func testGivesUpAfterTheBudgetInsteadOfHanging() {
         var slept: TimeInterval = 0
 
@@ -63,60 +65,95 @@ final class EngineLabelReleaseTests: XCTestCase {
         XCTAssertEqual(slept, 0)
     }
 
-    /// The budget has to be far above the ~20 ms launchd took, or the wait is
-    /// theatre.
-    func testTheBudgetIsFarAboveWhatLaunchdMeasuredAt() {
-        XCTAssertGreaterThanOrEqual(EngineBackgroundAgent.labelReleaseBudget, 1)
+    func testTimeoutNeverLoadsOverTheExistingJob() {
+        let harness = Harness(releases: [false])
+        XCTAssertEqual(harness.replace(), .failed("label release timed out"))
+        XCTAssertEqual(harness.events, ["bootout:gui", "bootout:user", "wait"])
     }
 
-    // MARK: - The install sequence
-
-    /// The order is the whole fix: bootout, WAIT, load. A load that runs
-    /// straight after the bootout is the defect this file exists for.
-    func testInstallWaitsBetweenBootoutAndLoad() throws {
-        let source = try macSource("Installer/EngineBackgroundAgent.swift")
-        let install = try slice(source, from: "static func install(", to: "\n    /// Restarts the job in place")
-
-        let bootout = try XCTUnwrap(install.range(of: #"launchctl(["bootout", "user/"#))
-        // The EXACT statement, not merely a mention of the name: an earlier
-        // version of this test compared only the ORDER of three substrings,
-        // and `if false, !awaitLabelReleased(...)` — the wait switched off —
-        // passed it. A guard that a disabled call satisfies measures nothing.
-        let wait = try XCTUnwrap(install.range(of: "\n        if !awaitLabelReleased(label: label) {"))
-        let load = try XCTUnwrap(install.range(of: #"launchctl(["load", "-S", "Background""#))
-
-        XCTAssertLessThan(bootout.lowerBound, wait.lowerBound, "the wait must come after the bootout")
-        XCTAssertLessThan(wait.lowerBound, load.lowerBound, "and before the load")
+    func testReplacementWaitsForReleaseAndVerifiesRegistration() {
+        let harness = Harness(releases: [true], loaded: [true])
+        XCTAssertEqual(harness.replace(), .installed)
+        XCTAssertEqual(harness.events, ["bootout:gui", "bootout:user", "wait", "load", "observe"])
+        XCTAssertEqual(harness.loads, [["load", "-S", "Background", "/fixture/engine.plist"]])
     }
 
-    /// Giving up after one failed load is what left the Mac with no engine at
-    /// all. The kill is already paid for by then; a second attempt can only
-    /// help.
-    func testAFailedLoadIsRetriedRatherThanLeavingNoEngine() throws {
-        let source = try macSource("Installer/EngineBackgroundAgent.swift")
-        let install = try slice(source, from: "static func install(", to: "\n    /// Restarts the job in place")
-        XCTAssertEqual(
-            install.components(separatedBy: #"launchctl(["load", "-S", "Background""#).count - 1, 2,
-            "the load is attempted twice before the job is declared lost"
-        )
+    func testUnobservedSuccessfulLoadRetriesOnlyAfterAnotherRelease() {
+        let harness = Harness(releases: [true, true], loaded: [false, true])
+        XCTAssertEqual(harness.replace(), .installed)
+        XCTAssertEqual(harness.events, ["bootout:gui", "bootout:user", "wait", "load", "observe", "wait", "load", "observe"])
     }
 
-    // MARK: - Helpers
-
-    private func macSource(_ relativePath: String) throws -> String {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("SoyehtMac")
-            .appendingPathComponent(relativePath)
-        return try String(contentsOf: url, encoding: .utf8)
+    func testRetryReleaseTimeoutNeverAttemptsASecondLoad() {
+        let harness = Harness(releases: [true, false], loaded: [false])
+        XCTAssertEqual(harness.replace(), .failed("label release timed out before load retry"))
+        XCTAssertEqual(harness.loads.count, 1)
+        XCTAssertEqual(harness.events.last, "wait")
     }
 
-    private func slice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
-        let start = try XCTUnwrap(source.range(of: startMarker))
-        let tail = source[start.lowerBound...]
-        let end = try XCTUnwrap(tail.range(of: endMarker))
-        return String(tail[..<end.lowerBound])
+    func testSuccessfulCommandsWithoutObservedJobRemainFailure() {
+        let harness = Harness(releases: [true, true], loaded: [false, false])
+        XCTAssertEqual(harness.replace(), .failed("not in user domain after load"))
+        XCTAssertEqual(harness.loads.count, 2)
+    }
+
+    func testLoadFailureIsReportedWithoutClaimingRegistration() {
+        let harness = Harness(releases: [true], loadStatuses: [17])
+        XCTAssertEqual(harness.replace(), .failed("load: rejected"))
+        XCTAssertEqual(harness.events.last, "load")
+    }
+
+    func testRetryFailureIsReportedWithoutClaimingRegistration() {
+        let harness = Harness(releases: [true, true], loaded: [false], loadStatuses: [0, 17])
+        XCTAssertEqual(harness.replace(), .failed("load retry: rejected"))
+        XCTAssertEqual(harness.events.last, "load")
+    }
+
+    private final class Harness {
+        var releases: [Bool]
+        var loaded: [Bool]
+        var loadStatuses: [Int32]
+        var events: [String] = []
+        var loads: [[String]] = []
+
+        init(releases: [Bool], loaded: [Bool] = [], loadStatuses: [Int32] = [0, 0]) {
+            self.releases = releases
+            self.loaded = loaded
+            self.loadStatuses = loadStatuses
+        }
+
+        func replace() -> EngineBackgroundAgent.InstallOutcome {
+            EngineBackgroundAgent.replaceLoadedJob(
+                label: "com.soyeht.fixture.engine",
+                destination: URL(fileURLWithPath: "/fixture/engine.plist"),
+                operations: .init(
+                    run: { arguments in
+                        if arguments.first == "bootout" {
+                            XCTAssertTrue(arguments[1].hasSuffix("/com.soyeht.fixture.engine"))
+                            self.events.append("bootout:" + arguments[1].components(separatedBy: "/")[0])
+                            return .init(status: 0, output: "")
+                        }
+                        self.events.append("load")
+                        self.loads.append(arguments)
+                        guard !self.loadStatuses.isEmpty else {
+                            XCTFail("Unexpected load")
+                            return .init(status: 1, output: "unexpected")
+                        }
+                        let status = self.loadStatuses.removeFirst()
+                        return .init(status: status, output: status == 0 ? "" : "rejected")
+                    },
+                    waitForRelease: { _ in
+                        self.events.append("wait")
+                        guard !self.releases.isEmpty else { XCTFail("Unexpected wait"); return false }
+                        return self.releases.removeFirst()
+                    },
+                    isLoaded: { _ in
+                        self.events.append("observe")
+                        guard !self.loaded.isEmpty else { XCTFail("Unexpected observation"); return false }
+                        return self.loaded.removeFirst()
+                    }
+                )
+            )
+        }
     }
 }

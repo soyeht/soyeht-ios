@@ -37,7 +37,9 @@ final class EngineArtifactIdentityTests: XCTestCase {
     func testReplacementRequiresExpectedImageBackendProtocolAndOriginalBroker() throws {
         let expected = try artifact(imageA)
         let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(expected))
-        let running: EngineRuntimeIdentity = try decode(["artifact": encoded, "terminal_backend": "supervisor"])
+        let running: EngineRuntimeIdentity = try decode(["artifact": encoded, "terminal_backend": "supervisor", "terminal_supervisor_boot_id": boot.uuidString])
+        let unrelated: EngineRuntimeIdentity = try decode(["artifact": encoded, "terminal_backend": "supervisor", "terminal_supervisor_boot_id": UUID().uuidString])
+        let unobserved: EngineRuntimeIdentity = try decode(["artifact": encoded, "terminal_backend": "supervisor"])
         let legacy: EngineRuntimeIdentity = try decode(["artifact": encoded, "terminal_backend": "legacy"])
         let absent: EngineRuntimeIdentity = try decode(["version": "0.1.30"])
         let status: PTYSupervisorStatus = try decode(["protocol_version": 2, "broker_boot_id": boot.uuidString, "live_sessions": 3])
@@ -46,6 +48,8 @@ final class EngineArtifactIdentityTests: XCTestCase {
         XCTAssertEqual(running.supervisedReplacementOutcome(expected: expected, priorBrokerBootID: UUID(), supervisor: status), .readyAfterSupervisorRestart)
         XCTAssertEqual(legacy.supervisedReplacementOutcome(expected: expected, priorBrokerBootID: boot, supervisor: status), .unconfirmed)
         XCTAssertEqual(absent.supervisedReplacementOutcome(expected: expected, priorBrokerBootID: boot, supervisor: status), .unconfirmed)
+        XCTAssertEqual(unrelated.supervisedReplacementOutcome(expected: expected, priorBrokerBootID: boot, supervisor: status), .unconfirmed)
+        XCTAssertEqual(unobserved.supervisedReplacementOutcome(expected: expected, priorBrokerBootID: boot, supervisor: status), .unconfirmed)
         let incompatible: PTYSupervisorStatus = try decode(["protocol_version": 3, "broker_boot_id": boot.uuidString, "live_sessions": 3])
         XCTAssertEqual(running.supervisedReplacementOutcome(expected: expected, priorBrokerBootID: boot, supervisor: incompatible), .unconfirmed)
     }

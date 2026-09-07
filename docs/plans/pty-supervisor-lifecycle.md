@@ -22,6 +22,14 @@ o binário e não substitui a verificação de assinatura/hash do pacote. Ausên
 de identidade é desconhecimento, nunca igualdade. O campo legado `version`
 dessa API continua existindo, mas não é o verificador da troca.
 
+O readback também compara `terminal_supervisor_boot_id`, observado pelo próprio
+engine através do cliente configurado, com o boot consultado pelo instalador.
+Selecionar o backend não prova qual daemon ele alcança. Erro nessa consulta
+produz ausência de prova (`null`), não identidade nem inventário inventados.
+O PID da consulta direta vem de `peer_cred()` do kernel; leituras antes/depois
+do `launchctl print` devem concordar em PID e boot. Divergência é observação
+incerta e permite outra consulta com prazo, não prova incompatibilidade.
+
 `soyeht-ptyd --contract` informa o protocolo do helper no pacote.
 `soyeht-ptyd --status --socket PATH` negocia com o daemon existente e lê seu
 inventário na mesma conexão. Não inicia serviço, não emite ticket e não fecha
@@ -88,7 +96,9 @@ ser explícita e verificar os processos atuais antes de abandonar a intenção.
    se está ausente, tenta carregar o destino já preparado. Não repete bootout
    para recuperar um load. Na fase de remoção incerta, uma nova tentativa exige
    revalidar a identidade do processo original e as precondições de sessão e
-   compatibilidade; não pode derrubar um processo novo só porque ocupa a mesma
+   compatibilidade **com a entrada de novos lançamentos novamente fechada**.
+   A barreira pertence também à retomada; consultar uma contagem zero não a
+   substitui. Não pode derrubar um processo novo só porque ocupa a mesma
    label. Se essas identidades não puderem ser provadas, permanece pendente.
 6. Após o load, verificar a configuração do job e o endpoint do executável
    realmente carregado. A label sozinha não confirma o resultado.
@@ -109,10 +119,24 @@ também recupera a intenção e oferece essa ação. A UI não fica bloqueada
 enquanto observa o launchd. O preflight pode
 provar arquivo/plist/protocolo; não pode provar liberação futura de uma label.
 
+A exclusão de uma rodada termina com seu resultado. Isso é separado da
+elegibilidade para abrir panes: relançar o app ou soltar o lock não autoriza
+CREATE no engine legado que ainda pode ser alvo de remoção em voo. Um pendente
+precisa ser visível e oferecer retomada; abandonar só pode liberar lançamentos
+em um destino revalidado como seguro, nunca apenas esquecer a intenção.
+
+`pending.next` impede leitura normal até uma retomada explícita. A retomada
+valida primeiro `pending.json`; pode terminar staging válido da mesma operação
+ou descartar staging com JSON sintaticamente truncado, que não passou pelo
+rename nem autorizou comando. Registro autoritativo corrompido, esquema
+desconhecido, arquivo ilegível/tipo inesperado e alvo divergente continuam
+recusados. Não há limpeza cega do journal como recuperação.
+
 ## Provas exigidas antes da ativação
 
 - Comandos injetados: timeout da remoção nunca resulta em sucesso por uma
-  observação da label antiga; retomada nunca repete a ação destrutiva.
+  observação da label antiga; recuperar um load nunca repete remoção.
+  Repetir uma remoção incerta exige identidade original e barreira renovada.
 - Falha de preparação não emite bootout; falha de load permanece diagnosticada;
   carga tardia do destino correto pode confirmar a operação pendente.
 - Processo com imagem antiga, path e semver iguais continua diferente depois

@@ -36,11 +36,13 @@ public struct EngineArtifactIdentity: Codable, Equatable, Sendable {
 public struct PTYSupervisorStatus: Decodable, Equatable, Sendable {
     public let protocolVersion: UInt16
     public let brokerBootID: UUID
+    public let brokerPID: UInt32?
     public let liveSessions: UInt
 
     enum CodingKeys: String, CodingKey {
         case protocolVersion = "protocol_version"
         case brokerBootID = "broker_boot_id"
+        case brokerPID = "broker_pid"
         case liveSessions = "live_sessions"
     }
 }
@@ -48,10 +50,16 @@ public struct PTYSupervisorStatus: Decodable, Equatable, Sendable {
 public struct EngineRuntimeIdentity: Decodable, Sendable {
     public let artifact: EngineArtifactIdentity?
     public let terminalBackend: String?
+    public let terminalSupervisorBootID: UUID?
+    public let processID: UInt32?
+    public let processBootID: String?
 
     enum CodingKeys: String, CodingKey {
         case artifact
         case terminalBackend = "terminal_backend"
+        case terminalSupervisorBootID = "terminal_supervisor_boot_id"
+        case processID = "process_id"
+        case processBootID = "process_boot_id"
     }
 
     public enum ReplacementOutcome: Equatable, Sendable {
@@ -74,6 +82,7 @@ public struct EngineRuntimeIdentity: Decodable, Sendable {
         guard let artifact,
               expected.compareImage(to: artifact) == .sameImage,
               terminalBackend == "supervisor",
+              terminalSupervisorBootID == supervisor.brokerBootID,
               artifact.ptySupervisorProtocol == expected.ptySupervisorProtocol,
               supervisor.protocolVersion == expected.ptySupervisorProtocol else { return .unconfirmed }
         return supervisor.brokerBootID == priorBrokerBootID ? .readyWithContinuity : .readyAfterSupervisorRestart

@@ -109,25 +109,9 @@ final class EngineSessionDomainTests: XCTestCase {
 
     // MARK: - How the move is made
 
-    /// The user domain has no plist directory of its own, and `bootstrap
-    /// user/<uid>` wants root. `launchctl load -S Background` is the one
-    /// interface that names a session type without asking for a password —
-    /// losing it would either break the move or cost the zero-sudo install.
-    func testTheJobIsLoadedWithAnExplicitBackgroundSessionType() throws {
-        let source = try macSource("Installer/EngineBackgroundAgent.swift")
-        XCTAssertTrue(source.contains(#"launchctl(["load", "-S", "Background", destination.path])"#))
-        XCTAssertTrue(source.contains(#"launchctl(["print", "user/\(getuid())/\(label)"])"#))
-    }
-
-    /// Installing boots the label out of BOTH domains first: a `load` on a
-    /// label that is still taken silently keeps the old command line, and the
-    /// GUI job is precisely the one being replaced.
-    func testInstallingFreesTheLabelInBothDomainsFirst() throws {
-        let source = try macSource("Installer/EngineBackgroundAgent.swift")
-        let install = try slice(source, from: "static func install(", to: "let load = launchctl")
-        XCTAssertTrue(install.contains(#"launchctl(["bootout", "gui/\(getuid())/\(label)"])"#))
-        XCTAssertTrue(install.contains(#"launchctl(["bootout", "user/\(getuid())/\(label)"])"#))
-    }
+    // Background loading, both-domain bootout, release refusal and observed
+    // registration are exercised by EngineLabelReleaseTests through the live
+    // replacement function with an injected service boundary.
 
     /// A launch that finds the job already home must not reload it: a reload
     /// restarts the engine, which is the cost the whole migration is timed to
