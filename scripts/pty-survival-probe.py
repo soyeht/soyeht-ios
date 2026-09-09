@@ -71,7 +71,13 @@ DEV_STATE_DIR = os.path.expanduser("~/Library/Application Support/SoyehtDev")
 DEV_ENGINE_LABEL = "com.soyeht.engine.dev"
 DEV_ENGINE_PATH_FRAGMENT = "SoyehtDev/engine/theyos-engine"
 DEV_SUPERVISOR_LABEL = "com.soyeht.ptyd.dev"
-DEV_SUPERVISOR_PATH_FRAGMENT = "SoyehtDev/engine/soyeht-ptyd"
+# Since the Accessibility fix the supervisor runs from the engine's own file
+# (`theyos-engine ptyd`), so the kernel image no longer tells the two apart:
+# the argv word does. A daemon loaded by an earlier release still runs the
+# helper, and is found by its own image.
+DEV_SUPERVISOR_PATH_FRAGMENT = "SoyehtDev/engine/theyos-engine"
+DEV_LEGACY_SUPERVISOR_PATH_FRAGMENT = "SoyehtDev/engine/soyeht-ptyd"
+SUPERVISOR_ARGV_MARKER = " ptyd "
 
 
 # ─────────────────────────── what the OS says ───────────────────────────
@@ -253,17 +259,26 @@ def executable_path(pid: int) -> str | None:
     return os.fsdecode(buffer.value)
 
 
-def engine_identity(path_fragment: str) -> dict | None:
+def engine_identity(path_fragment: str, role: str = "engine") -> dict | None:
     """A unique launchd child executing this image, without transient fallback.
 
     ps command text narrows candidates only. The kernel path must match the
     binary itself: wrappers mentioning it and similarly named siblings are not
     engines. A transient --contract process cannot stand in for the daemon.
     Ambiguity or inability to inspect a candidate does not prove absence.
+
+    `role` separates the two daemons that now share one image: "engine"
+    excludes processes whose argv carries the supervisor word, "supervisor"
+    requires it, "any" does not look at argv beyond the path fragment.
     """
     candidates = []
     for row in ps_rows("pid=,command="):
         if len(row) < 2 or path_fragment not in row[1]:
+            continue
+        is_supervisor = SUPERVISOR_ARGV_MARKER in row[1] + " "
+        if role == "engine" and is_supervisor:
+            continue
+        if role == "supervisor" and not is_supervisor:
             continue
         pid = int(row[0])
         before = process_identity(pid)
@@ -282,6 +297,15 @@ def engine_identity(path_fragment: str) -> dict | None:
     if len(daemons) != 1:
         raise Unqueryable("no unique launchd-owned daemon among matching executable paths")
     return daemons[0]
+
+
+def supervisor_identity() -> dict | None:
+    """The Dev supervisor, whichever release loaded it: the engine file in
+    `ptyd` mode first, then the legacy helper image."""
+    current = engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT, role="supervisor")
+    if current is not None:
+        return current
+    return engine_identity(DEV_LEGACY_SUPERVISOR_PATH_FRAGMENT, role="any")
 
 
 # ─────────────────────────── talking to the engine ───────────────────────
@@ -922,7 +946,7 @@ def provoke_failure(mode: str, engine: dict) -> None:
         # Calibration, not a swap: kill the component that OWNS the sessions,
         # under the same load. If the sessions survive this too, the instrument
         # is not measuring survival — it is incapable of seeing death.
-        supervisor = engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT)
+        supervisor = supervisor_identity()
         if supervisor is None:
             sys.exit("refused: no Dev supervisor is running, so killing it "
                      "cannot calibrate anything. Run this mode once the "
@@ -1051,7 +1075,7 @@ def run(args) -> int:
     if not engine_before:
         sys.exit("the Dev engine is not running")
     engine_pid = engine_before["pid"]
-    supervisor_before = engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT)
+    supervisor_before = supervisor_identity()
     # Either process can be the shell's parent, depending on the backend under
     # test. Both are offered; which one actually appears is recorded, not assumed.
     owner_pids = [engine_pid] + ([supervisor_before["pid"]] if supervisor_before else [])
@@ -1439,6 +1463,17 @@ def self_test() -> int:
         rows = [["3", image + "-old"]]
         paths[3] = image + "-old"
         expect("similarly named image is different", engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT) is None, "kernel path suffix must match exactly")
+        # One image, two daemons: the engine and the supervisor in `ptyd` mode.
+        # The argv word is the only thing that tells them apart.
+        rows = [["4", image + " --some-engine-flag"], ["5", image + " ptyd --socket fixture --state-dir fixture"]]
+        identities.update({4: {"pid": 4, "ppid": 1}, 5: {"pid": 5, "ppid": 1}})
+        paths.update({4: image, 5: image})
+        expect("engine role skips the supervisor sharing its image", engine_identity(DEV_SUPERVISOR_PATH_FRAGMENT) == identities[4], "the ptyd process was taken for the engine")
+        expect("supervisor role is the ptyd process", supervisor_identity() == identities[5], "the engine was taken for the supervisor")
+        rows = [["4", image + " --some-engine-flag"], ["6", "/fixture/Library/Application Support/" + DEV_LEGACY_SUPERVISOR_PATH_FRAGMENT + " --socket fixture --state-dir fixture"]]
+        identities[6] = {"pid": 6, "ppid": 1}
+        paths[6] = "/fixture/Library/Application Support/" + DEV_LEGACY_SUPERVISOR_PATH_FRAGMENT
+        expect("legacy helper daemon is still found as the supervisor", supervisor_identity() == identities[6], "a daemon loaded by the previous release was lost")
     finally:
         globals().update(originals)
 

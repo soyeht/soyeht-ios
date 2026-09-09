@@ -74,6 +74,13 @@ public enum EngineCompat {
     ///     terminated — which is what took eleven live panes on 2026-09-05.
     ///     Stated no wider than it was proven: this is about the sessions
     ///     that engine process owns, not about every pane or every backend.
+    ///   - The release after `0.1.31` carries `theyos-engine ptyd`: the same
+    ///     supervisor, run from the engine's own file. The Mac lifecycle
+    ///     writes the supervisor LaunchAgent with that program only after it
+    ///     has staged the bundled engine, so the floor does not move for it;
+    ///     an older engine given `ptyd` would start an HTTP server instead.
+    ///     Why: macOS Accessibility is granted per executable path, and the
+    ///     supervisor is the parent of every pane shell (2026-09-08).
     ///
     /// **What this floor does and does not do, measured.** It is the version
     /// gate the bootstrap clients apply before talking to an engine, and the
