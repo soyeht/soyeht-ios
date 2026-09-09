@@ -15,7 +15,7 @@ final class EngineInstallationProbeTests: XCTestCase {
     private func job(pid: Int = 456) -> String {
         """
         user/123/\(spec.label) = {
-            program = \(spec.executable.path)
+            program = \(spec.program.path)
             arguments = {
                 \(spec.arguments.joined(separator: "\n                "))
             }

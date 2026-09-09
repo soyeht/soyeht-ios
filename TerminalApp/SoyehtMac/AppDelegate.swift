@@ -741,12 +741,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     private struct AgentVisualPermissionState {
         let screenRecording: Bool
         let accessibility: Bool
+        /// Whose Accessibility grant was measured: the engine file (the
+        /// identity pane shells run under) or, when no engine is installed
+        /// yet, this app.
+        let accessibilitySubject: String
 
         var isComplete: Bool {
             screenRecording && accessibility
         }
     }
 
+    /// Accessibility is checked and requested for the ENGINE file, not for
+    /// this app: pane shells hang off the PTY supervisor, which runs from
+    /// that file, so that is the grant an agent in a pane needs. Asking for
+    /// the app reported "granted" while every pane was refused (2026-09-08).
     private func runAgentVisualPermissionsFlow() {
         let initial = currentAgentVisualPermissionState()
 
@@ -755,9 +763,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         }
 
         if !initial.accessibility {
-            let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-            let options = [promptKey: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
+            if EngineAccessibilityProbe.check(engine: EnginePackager.engineDestinationURL, prompt: true) == nil {
+                let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+                let options = [promptKey: true] as CFDictionary
+                _ = AXIsProcessTrustedWithOptions(options)
+            }
         }
 
         let current = currentAgentVisualPermissionState()
@@ -765,9 +775,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
     }
 
     private func currentAgentVisualPermissionState() -> AgentVisualPermissionState {
-        AgentVisualPermissionState(
+        if let engine = EngineAccessibilityProbe.check(engine: EnginePackager.engineDestinationURL, prompt: false) {
+            return AgentVisualPermissionState(
+                screenRecording: CGPreflightScreenCaptureAccess(),
+                accessibility: engine.trusted,
+                accessibilitySubject: "theyos-engine"
+            )
+        }
+        return AgentVisualPermissionState(
             screenRecording: CGPreflightScreenCaptureAccess(),
-            accessibility: AXIsProcessTrusted()
+            accessibility: AXIsProcessTrusted(),
+            accessibilitySubject: Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Soyeht"
         )
     }
 
@@ -784,7 +802,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MainMenuRuntimeProviding, Ma
         Native Tools uses these macOS permissions for agents launched inside \(appName).
 
         Screen Recording: \(screenStatus)
-        Accessibility: \(accessibilityStatus)
+        Accessibility (\(state.accessibilitySubject), covers every agent pane): \(accessibilityStatus)
 
         These permissions are granted separately for Soyeht and Soyeht Dev. After changing them, quit and reopen \(appName) so new agent processes inherit the updated access.
         """

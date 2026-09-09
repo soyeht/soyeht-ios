@@ -48,7 +48,8 @@ extension SoyehtAutomationRequestRouter {
         let target = try automationTargetWindow(payload: payload)
         let opened = try target.openExplorerPane(
             rootURL: try existingDirectoryURL(rawPath),
-            workspaceID: try automationWorkspaceID(payload: payload, in: target)
+            workspaceID: try automationWorkspaceID(payload: payload, in: target),
+            attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
             openedSpecialPane(opened, windowID: target.windowID)

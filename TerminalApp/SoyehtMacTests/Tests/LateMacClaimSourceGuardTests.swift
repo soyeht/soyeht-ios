@@ -164,26 +164,47 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
         )
     }
 
-    func test_householdMatchReadsHhPub_andFallsBackToTheEngineHost() throws {
-        let match = try slice(
-            try codeOnly(awaitingMacSource()),
-            from: "private static func claim(",
-            to: "    func stop() {"
+    /// "Is this claim from the Mac on the card?" is decided by the six words
+    /// the person is looking at: household key AND nonce, with no fallback
+    /// by engine host. PR #93 tightened it from household-key-only so a home
+    /// with two Macs cannot install the other Mac's secret behind the card.
+    /// Measured 2026-09-09 on the Dev pair: the nonce holds for the whole
+    /// pairing window (5 min by default, unchanged for 125 s of sampling and
+    /// across closing and reopening the sheet), and the phone re-reads the
+    /// offer every 15 s, so a rotation cannot strand a legitimate late claim
+    /// for more than seconds.
+    func test_sameMacMeansTheWordsOnTheCard_householdKeyAndNonce_withNoHostFallback() throws {
+        let source = try codeOnly(awaitingMacSource())
+        let match = try slice(source, from: "private static func claim(", to: "    func stop() {")
+        XCTAssertTrue(
+            match.contains("claimed.householdPublicKey == confirmed.householdPublicKey"),
+            "the match must compare the household key"
         )
         XCTAssertTrue(
-            match.contains("householdKey(of: claimedURL)") && match.contains("householdKey(of: candidate.pairDeviceURI)"),
-            "the household match must compare hh_pub — the only part of the link that holds still while the nonce rotates"
+            match.contains("claimed.pairingNonce == confirmed.pairingNonce"),
+            "and the nonce — the six words the person sees identify THIS Mac, now"
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             match.contains("claim.macEngineURL.host == candidate.engineURL.host"),
-            "a claim carrying no household must fall back to the engine host"
+            "no fallback by engine host: two Macs of one home share the household key, not the words"
+        )
+        // Both the late-claim path and the Connect path must ask that one question.
+        let accept = try acceptLateClaimBody()
+        XCTAssertTrue(
+            accept.contains("!Self.claim(claim, matchesDevicePairingCode: candidate.pairDeviceURI) { return }"),
+            "a late claim with the card up must match the card's words or be ignored"
+        )
+        let connect = try slice(source, from: "func connectToExistingHouse() -> Task<Void, Never>? {", to: "private func recordFailure(")
+        XCTAssertTrue(
+            connect.contains("guard Self.claim(claim, matchesDevicePairingCode: confirmed.pairDeviceURI) else {"),
+            "Connect must verify the claim against the words the person confirmed"
         )
     }
 
     func test_connectReadsTheCandidateRebuiltWhileItWasInFlight() throws {
         let connect = try slice(
             try codeOnly(awaitingMacSource()),
-            from: "func connectToExistingHouse() {",
+            from: "func connectToExistingHouse() -> Task<Void, Never>? {",
             to: "private func recordFailure("
         )
         XCTAssertTrue(
@@ -195,7 +216,7 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
 
     func testPairingFailuresPreserveTheAttemptInsteadOfGuessingFromTheLink() throws {
         let source = try codeOnly(awaitingMacSource())
-        let connect = try slice(source, from: "func connectToExistingHouse() {", to: "private func recordFailure(")
+        let connect = try slice(source, from: "func connectToExistingHouse() -> Task<Void, Never>? {", to: "private func recordFailure(")
         XCTAssertTrue(connect.contains("PairingAttemptFailure.capture("))
         XCTAssertTrue(connect.contains("self.recordFailure(failure)"))
         XCTAssertFalse(source.contains("connectFailureReason("))
@@ -391,15 +412,17 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
     private func claimHandler() throws -> String {
         try slice(
             try codeOnly(awaitingMacSource()),
-            from: "publisher.onMacClaimed = { [weak self] claim in",
-            to: "publisher.start()"
+            // PR #93 moved the claim handling out of the publisher closure
+            // into a method; the slice follows the code, the checks do not change.
+            from: "func handleDirectClaim(",
+            to: "func acceptLateClaim("
         )
     }
 
     private func acceptLateClaimBody() throws -> String {
         try slice(
             try codeOnly(awaitingMacSource()),
-            from: "private func acceptLateClaim(",
+            from: "func acceptLateClaim(",
             to: "private static func claim("
         )
     }

@@ -56,6 +56,32 @@ enum PTYSupervisorInstaller {
         let runner: (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result = {
             try EngineCommandRunner.runBlocking(executable: $0, arguments: $1, timeout: $2)
         }
+        let outcome = ensure(installation: installation, protocolVersion: protocolVersion, run: runner)
+        if case .ready = outcome {
+            _ = refreshLegacyDefinition(installation: installation, uid: getuid(), run: runner)
+        }
+        return outcome
+    }
+
+    /// A daemon loaded by a release before `theyos-engine ptyd` keeps running
+    /// the `soyeht-ptyd` helper, and keeps its sessions. Only the plist on
+    /// disk changes, so launchd starts the next daemon — at the next login —
+    /// from the engine file, under the Accessibility grant that file already
+    /// has. Never loads, boots out or signals anything. Returns whether the
+    /// definition was rewritten.
+    static func refreshLegacyDefinition(installation: PTYSupervisorInstallation, uid: UInt32,
+                                        run: (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result) -> Bool {
+        guard let result = try? run(URL(fileURLWithPath: "/bin/launchctl"), ["print", "user/\(uid)/\(installation.label)"], 5),
+              result.succeeded, !result.timedOut, !result.outputTruncated,
+              installation.loadedJobIsLegacy(String(decoding: result.output, as: UTF8.self), uid: uid),
+              let plist = try? installation.plistData() else { return false }
+        if let current = try? Data(contentsOf: installation.plist), current == plist { return false }
+        do { try plist.write(to: installation.plist, options: .atomic) } catch { return false }
+        return true
+    }
+
+    static func ensure(installation: PTYSupervisorInstallation, protocolVersion: UInt16,
+                       run runner: @escaping (URL, [String], TimeInterval) throws -> EngineCommandRunner.Result) -> Outcome {
         let probe = PTYSupervisorProbe(supervisor: installation, uid: getuid(), run: runner)
         return ensure(protocolVersion: protocolVersion, operations: .init(
             observe: { probe.observe() },

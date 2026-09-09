@@ -1348,8 +1348,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @MainActor
-    func openExplorerPane(rootURL: URL, workspaceID: Workspace.ID? = nil) throws -> OpenedSpecialPaneResult {
-        try openEditorPane(fileURL: nil, rootURL: rootURL, line: nil, column: nil, workspaceID: workspaceID)
+    /// `attachTerminalStack` mirrors `openEditorPane`: UI callers keep the
+    /// 3-terminal scratch stack, automation callers pass `false` so
+    /// `mcp__soyeht__open_explorer` adds only the explorer pane.
+    func openExplorerPane(rootURL: URL, workspaceID: Workspace.ID? = nil,
+                          attachTerminalStack: Bool = true) throws -> OpenedSpecialPaneResult {
+        try openEditorPane(fileURL: nil, rootURL: rootURL, line: nil, column: nil,
+                           workspaceID: workspaceID, attachTerminalStack: attachTerminalStack)
     }
 
     /// `attachTerminalStack` mirrors `openEditorPane`. UI callers default
@@ -4608,8 +4613,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// Resolve a tmux sessionId (create if needed), build the WS URL, then
-    /// hand it to the pane's terminal view for connection.
-    private static func wireTerminal(
+    /// hand it to the pane's terminal view for connection. Also the relaunch
+    /// path: `PaneViewController` calls it with the recorded session so the
+    /// pane reattaches instead of coming back blank.
+    static func wireTerminal(
         for conversationID: Conversation.ID,
         container: String,
         attachSessionId: String?,
@@ -4644,8 +4651,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             token: context.token,
             kind: activeKind
         )
-        // Refresh commander so PaneViewController hides its placeholder.
-        convStore.updateCommander(conversationID, commander: .mirror(instanceID: container))
+        // Refresh commander so PaneViewController hides its placeholder, and
+        // record the session so a relaunch can find it again.
+        convStore.updateCommander(conversationID, commander: .mirror(instanceID: container, sessionID: sessionId))
         if let pane = LivePaneRegistry.shared.pane(for: conversationID) as? PaneViewController {
             // .mirror is never handoff-eligible (see EnginePaneAttacher's
             // isLocalHandoffSource: true counterpart) — its QR/Continue-on-

@@ -60,6 +60,14 @@ public enum BootstrapErrorCode: String, Codable, Equatable, Hashable, Sendable, 
     case acceptHouseholdNotPending = "accept_household_not_pending"
     /// The engine is still starting and not ready to serve yet (HTTP 503).
     case engineInitializing = "engine_initializing"
+    /// The engine has no install profile yet, so it cannot judge which
+    /// install a claim belongs to (HTTP 503). Typed 2026-09-09: the claim
+    /// handler had emitted it as a raw string since the addressing refactor.
+    case profileMissing = "profile_missing"
+    /// The claim names a different install profile than the engine's (HTTP 409).
+    case profileMismatch = "profile_mismatch"
+    /// The setup invitation was already claimed by another Mac (HTTP 409).
+    case invitationAlreadyClaimed = "invitation_already_claimed"
     /// Unrecognized / future code (fail-soft catch-all).
     case unknown
 

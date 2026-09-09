@@ -74,6 +74,14 @@ public enum EngineCompat {
     ///     terminated — which is what took eleven live panes on 2026-09-05.
     ///     Stated no wider than it was proven: this is about the sessions
     ///     that engine process owns, not about every pane or every backend.
+    ///   - `0.1.32` carries `theyos-engine ptyd`: the same supervisor, run from
+    ///     the engine's own file, and Mac Host instance sessions owned by it. The Mac lifecycle
+    ///     writes the supervisor LaunchAgent with that program only after it
+    ///     has staged the bundled engine; the floor moves to `0.1.32` so a
+    ///     phone never pairs against a Mac whose supervisor still runs from the
+    ///     helper. An older engine given `ptyd` would start an HTTP server.
+    ///     Why: macOS Accessibility is granted per executable path, and the
+    ///     supervisor is the parent of every pane shell (2026-09-08).
     ///
     /// **What this floor does and does not do, measured.** It is the version
     /// gate the bootstrap clients apply before talking to an engine, and the
@@ -86,7 +94,7 @@ public enum EngineCompat {
     /// version of this comment claimed the replacement happens only when the
     /// running engine is older than this literal; the A-to-B replacement
     /// proved on hardware at equal semver, so the claim was false.
-    public static let minSupportedEngineVersion = "0.1.31"
+    public static let minSupportedEngineVersion = "0.1.32"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to

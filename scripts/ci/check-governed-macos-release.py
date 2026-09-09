@@ -51,20 +51,20 @@ PRIVATE_KEY_MARKER = b"-----BEGIN PRIVATE KEY-----"
 # The release the shipped engine is actually pinned to. Every value here was
 # re-measured against the published artifact and the tag it was built from,
 # not carried over: the sha256 is of the DOWNLOADED
-# `theyos-engine-0.1.31-macos-arm64.tar.gz` asset (fetched from the public
+# `theyos-engine-0.1.32-macos-arm64.tar.gz` asset (fetched from the public
 # release URL, because validating the local file proves the build and not the
-# delivery), and the source and tree are what `refs/tags/v0.1.31` resolves to.
+# delivery), and the source and tree are what `refs/tags/v0.1.32` resolves to.
 #
-# Moved from 0.1.30 on 2026-09-07, for the release that carries the PTY
-# supervisor. This is the first bump where the PACKAGE contract moved too:
-# seven executables instead of six, plus `engine-build-info.json`. The asset
-# was downloaded from the public URL and its sha compared byte for byte
-# against what was built from the tag; the receipt inside it names the same
-# commit as ENGINE_RELEASE_SOURCE.
-ENGINE_RELEASE_VERSION = "0.1.31"
-ENGINE_RELEASE_SHA256 = "0719ae1def85026b0106e4e2f63caf67d970f33eb286b4ec642a775d47556973"
-ENGINE_RELEASE_SOURCE = "e84f998a8390abfe70a95433b7f0ab513823dbd4"
-ENGINE_RELEASE_TREE = "df0170b5e11fe30b83608548f8e06bf5a39491fb"
+# Moved from 0.1.31 on 2026-09-09, for the release whose supervisor runs from
+# the engine's own file (`theyos-engine ptyd`) and owns Mac Host instance
+# sessions. The PACKAGE contract did not move: seven executables plus
+# `engine-build-info.json`, as in 0.1.31. The asset was downloaded from the
+# public URL and its sha compared byte for byte against what was built from
+# the tag; the receipt inside it names the same commit as ENGINE_RELEASE_SOURCE.
+ENGINE_RELEASE_VERSION = "0.1.32"
+ENGINE_RELEASE_SHA256 = "ed697dacacb08054186c12349d40823b08146930c5c752825569cf951c637b5c"
+ENGINE_RELEASE_SOURCE = "3145e6fac872b8bd85537f8630380c7444191be7"
+ENGINE_RELEASE_TREE = "055eb919574ec071c61aaef712c68e5a9c770992"
 
 # The regression test that pins the floor. The NAME lives here, with the rest
 # of the per-release measurements, rather than as a literal inside the check.
@@ -77,8 +77,10 @@ ENGINE_RELEASE_TREE = "df0170b5e11fe30b83608548f8e06bf5a39491fb"
 # comment further down calls out for the refused-version literal — a value
 # that must move with the release does not belong hard-coded in the logic.
 # It happened again for 0.1.31: the floor moves for the PTY supervisor, so the
-# advert name would have been a lie for the second release running.
-ENGINE_RELEASE_FLOOR_TEST = "test_currentReleaseRequiresIndependentPTYSupervisor"
+# advert name would have been a lie for the second release running. And for
+# 0.1.32 the floor moves because the supervisor changed FILE, not because it
+# appeared, so the 0.1.31 name would have been a lie for a third time.
+ENGINE_RELEASE_FLOOR_TEST = "test_currentReleaseRequiresTheSupervisorFromTheEngineFile"
 CANONICAL_SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
 

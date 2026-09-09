@@ -8,9 +8,16 @@
 # (household_claws.{stage_suffix}.peer_rejected) and the variable-bound stages.
 #
 # Provenance: generated + hand-minimized from the pinned engine source
-# theyos@e84f998a8390abfe70a95433b7f0ab513823dbd4 (refs/tags/v0.1.31, the source
-# the shipped 0.1.31 engine asset is attested to; tree
-# df0170b5e11fe30b83608548f8e06bf5a39491fb).
+# theyos@3145e6fac872b8bd85537f8630380c7444191be7 (refs/tags/v0.1.32, the source
+# the shipped 0.1.32 engine asset is attested to; tree
+# 055eb919574ec071c61aaef712c68e5a9c770992).
+#
+# Moved from v0.1.31 on 2026-09-09 and NOT grown. All twenty-three tokens were
+# re-verified present as compile-time literals in the v0.1.32 tree — grepped
+# against the checked-out tag, not assumed — and none were dropped. Nothing was
+# added: the supervisor-from-the-engine-file, the Mac Host sessions in the
+# supervisor and the `accessibility` subcommand emit no `stage` token, which
+# was checked rather than presumed.
 #
 # Moved from v0.1.31's predecessor on 2026-09-07 and NOT grown. All twenty-three
 # tokens were re-verified present as compile-time literals in the v0.1.31 tree —
