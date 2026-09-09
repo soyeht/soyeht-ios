@@ -342,7 +342,7 @@ enum AgentQRHandoffRoute: Equatable {
 
     static func route(for commander: CommanderState) -> Self {
         switch commander {
-        case .mirror(let instanceID) where !commander.isPlaceholderMirror:
+        case .mirror(let instanceID, _) where !commander.isPlaceholderMirror:
             return .remote(instanceID: instanceID)
         case .native, .engineLocal:
             return .local

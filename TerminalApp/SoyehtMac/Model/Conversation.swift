@@ -12,7 +12,13 @@ import Foundation
 /// against `POST/GET/DELETE /api/v1/terminals/local/{conversationID}` on
 /// this Mac's own engine, never a remote server.
 enum CommanderState: Codable, Hashable {
-    case mirror(instanceID: String)
+    /// A conversation on an instance. `sessionID` is the tmux session the
+    /// pane attached to, recorded so a relaunch can reattach: the session is
+    /// still alive in that instance's tmux — or, for this Mac, in the PTY
+    /// supervisor — while the pane would otherwise come back blank. A mirror
+    /// written before this field existed decodes with `nil` and is sent
+    /// back to the picker rather than shown as live.
+    case mirror(instanceID: String, sessionID: String? = nil)
     case native(pid: Int32)
     case engineLocal(conversationID: String, sessionInstanceID: String? = nil, creationIntentID: String? = nil)
 
@@ -28,6 +34,13 @@ enum CommanderState: Codable, Hashable {
 
     var requiresEngineSessionPreservation: Bool {
         engineSessionInstanceID != nil || engineCreationIntentID != nil
+    }
+
+    /// The tmux session a real (non-placeholder) mirror attached to, if the
+    /// pane recorded one.
+    var mirrorSessionID: String? {
+        guard case .mirror(_, let session) = self, !isPlaceholderMirror else { return nil }
+        return session
     }
 
     static let placeholderMirror = CommanderState.mirror(instanceID: "pending")

@@ -118,6 +118,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
+    /// Set while a recorded instance session is being reattached, so the
+    /// store change that wiring itself produces cannot start a second one.
+    private var isRestoringMirrorPane = false
     /// One scheduled recovery per transport-loss episode; cancelled the
     /// moment a connection is (re)established.
     private var pendingTransportReattachTask: Task<Void, Never>?
@@ -790,7 +793,34 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         refreshOrchestrationManagerHeaderState(for: conv)
         restoreLocalShellIfNeeded(for: conv)
         restoreEnginePaneIfNeeded(for: conv)
+        restoreMirrorPaneIfNeeded(for: conv)
         updateEmptyStateVisibility()
+    }
+
+    /// A conversation on an instance recorded the tmux session it attached
+    /// to. On relaunch that session is still alive — in the instance's tmux,
+    /// or for this Mac in the PTY supervisor — so the pane reattaches instead
+    /// of coming back blank with no picker (the state every ⌘T pane returned
+    /// in before 2026-09-09). A mirror from an older build carries no session
+    /// and goes back to the picker rather than pretending to be live.
+    private func restoreMirrorPaneIfNeeded(for conv: Conversation) {
+        guard conv.content.isTerminal else { return }
+        guard case .mirror(let container, let sessionID) = conv.commander,
+              !conv.commander.isPlaceholderMirror else { return }
+        guard !terminalView.isRemoteSessionConfigured, !isRestoringMirrorPane else { return }
+        guard let store = AppEnvironment.conversationStore else { return }
+        guard let sessionID else {
+            store.updateCommander(conversationID, commander: .placeholderMirror)
+            return
+        }
+        isRestoringMirrorPane = true
+        let id = conversationID
+        Task { @MainActor [weak self] in
+            await SoyehtMainWindowController.wireTerminal(
+                for: id, container: container, attachSessionId: sessionID, convStore: store
+            )
+            self?.isRestoringMirrorPane = false
+        }
     }
 
     private func configureContent(for conv: Conversation) {
