@@ -566,7 +566,12 @@ struct MobileClawVPNOwnerPresentSuccessWireTests {
         // the release that carries the PTY supervisor. Ritual performed a third
         // time before the literal moved: the vendored fixture and the source
         // file at that commit both hash to 55fe55c6…f8f, the same value again.
-        #expect(pin == "e84f998a8390abfe70a95433b7f0ab513823dbd4")
+        //
+        // Moved to 3145e6fa (theyos main at engine 0.1.32) on 2026-09-09, for
+        // the release whose supervisor runs from the engine file. Ritual
+        // performed a fourth time before the literal moved: vendored fixture and
+        // source at that commit both hash to 55fe55c6…f8f, unchanged.
+        #expect(pin == "3145e6fac872b8bd85537f8630380c7444191be7")
     }
 }
 
