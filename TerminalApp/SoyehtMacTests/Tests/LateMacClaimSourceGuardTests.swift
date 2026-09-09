@@ -183,7 +183,7 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
     func test_connectReadsTheCandidateRebuiltWhileItWasInFlight() throws {
         let connect = try slice(
             try codeOnly(awaitingMacSource()),
-            from: "func connectToExistingHouse() {",
+            from: "func connectToExistingHouse() -> Task<Void, Never>? {",
             to: "private func recordFailure("
         )
         XCTAssertTrue(
@@ -195,7 +195,7 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
 
     func testPairingFailuresPreserveTheAttemptInsteadOfGuessingFromTheLink() throws {
         let source = try codeOnly(awaitingMacSource())
-        let connect = try slice(source, from: "func connectToExistingHouse() {", to: "private func recordFailure(")
+        let connect = try slice(source, from: "func connectToExistingHouse() -> Task<Void, Never>? {", to: "private func recordFailure(")
         XCTAssertTrue(connect.contains("PairingAttemptFailure.capture("))
         XCTAssertTrue(connect.contains("self.recordFailure(failure)"))
         XCTAssertFalse(source.contains("connectFailureReason("))
@@ -391,15 +391,17 @@ final class LateMacClaimSourceGuardTests: XCTestCase {
     private func claimHandler() throws -> String {
         try slice(
             try codeOnly(awaitingMacSource()),
-            from: "publisher.onMacClaimed = { [weak self] claim in",
-            to: "publisher.start()"
+            // PR #93 moved the claim handling out of the publisher closure
+            // into a method; the slice follows the code, the checks do not change.
+            from: "func handleDirectClaim(",
+            to: "func acceptLateClaim("
         )
     }
 
     private func acceptLateClaimBody() throws -> String {
         try slice(
             try codeOnly(awaitingMacSource()),
-            from: "private func acceptLateClaim(",
+            from: "func acceptLateClaim(",
             to: "private static func claim("
         )
     }
